@@ -369,7 +369,7 @@ static void ulpi_init(struct usb_info *ui)
 		return;
 
 	while (seq[0] >= 0) {
-		INFO("ulpi: write 0x%02x to 0x%02x\n", seq[0], seq[1]);
+//		INFO("ulpi: write 0x%02x to 0x%02x\n", seq[0], seq[1]);
 		ulpi_write(ui, seq[0], seq[1]);
 		seq += 2;
 	}
