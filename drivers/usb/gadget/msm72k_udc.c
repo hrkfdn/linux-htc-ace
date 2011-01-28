@@ -1569,6 +1569,13 @@ static void usb_reset(struct usb_info *ui)
 
 	msleep(100);
 
+	/* toggle non-driving mode after phy reset to ensure that
+	 * we cause a disconnect event to the host */
+	ulpi_write(ui, 0x18, 0x6);
+	msleep(1);
+	ulpi_write(ui, 0x8, 0x5);
+	msleep(1);
+
 	/* RESET */
 	writel(2, USB_USBCMD);
 	msleep(10);
@@ -2536,7 +2543,7 @@ static int msm72k_pullup(struct usb_gadget *_gadget, int is_active)
 		pr_info("msm_hsusb: disable pullup\n");
 		writel(cmd, USB_USBCMD);
 
-#ifndef CONFIG_ARCH_MSM7X00A
+#if defined(CONFIG_ARCH_QSD8X50) || defined(CONFIG_ARCH_MSM7X30)
 		ulpi_write(ui, 0x48, 0x04);
 #endif
 	}
