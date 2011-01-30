@@ -185,12 +185,7 @@ static struct power_supply htc_power_supplies[] = {
 };
 
 static int update_batt_info(void);
-static void usb_status_notifier_func(int online);
 //static int g_usb_online;
-static struct t_usb_status_notifier usb_status_notifier = {
-	.name = "htc_battery",
-	.func = usb_status_notifier_func,
-};
 
 /* Move cable detection/notification to standard PMIC RPC. */
 static BLOCKING_NOTIFIER_HEAD(cable_status_notifier_list);
@@ -598,7 +593,7 @@ EXPORT_SYMBOL(htc_get_usb_accessory_adc_level);
 /* A9 reports USB charging when helf AC cable in and China AC charger. */
 /* notify userspace USB charging first,
 and then usb driver will notify AC while D+/D- Line short. */
-static void usb_status_notifier_func(int online)
+void notify_usb_connected(int online)
 {
 #if 1
 	pr_info("batt:online=%d",online);
@@ -1746,7 +1741,6 @@ static int __init htc_battery_init(void)
 	wake_lock_init(&vbus_wake_lock, WAKE_LOCK_SUSPEND, "vbus_present");
 	mutex_init(&htc_batt_info.lock);
 	mutex_init(&htc_batt_info.rpc_lock);
-	usb_register_notifier(&usb_status_notifier);
 	platform_driver_register(&htc_battery_driver);
 	platform_driver_register(&htc_battery_core_driver);
 	batt_register_client(&batt_notify);

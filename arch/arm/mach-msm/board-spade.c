@@ -136,6 +136,7 @@ static int phy_init_seq[] = { 0x06, 0x36, 0x0C, 0x31, 0x31, 0x32, 0x1, 0x0D, 0x1
 static struct msm_hsusb_platform_data msm_hsusb_pdata = {
 	.phy_init_seq		= phy_init_seq,
 	.phy_reset		= msm_hsusb_phy_reset,
+	.usb_connected = notify_usb_connected,
 	.usb_id_pin_gpio  = SPADE_GPIO_USB_ID_PIN,
 	.disable_usb_charger = spade_disable_usb_charger,
 	.accessory_detect = 1, /* detect by ID pin gpio */

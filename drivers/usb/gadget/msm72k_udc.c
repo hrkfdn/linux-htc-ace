@@ -2105,6 +2105,9 @@ static void usb_do_work(struct work_struct *w)
 					msleep(5);
 				}
 
+				if (ui->usb_connected)
+					ui->usb_connected(0);
+
 				/* terminate any transactions, etc */
 				flush_all_endpoints(ui);
 
@@ -2154,6 +2157,8 @@ static void usb_do_work(struct work_struct *w)
 					usb_reset(ui);
 					charger_detect(ui);
 				}
+				if (ui->usb_connected)
+					ui->usb_connected(1);
 
 				ui->state = USB_STATE_ONLINE;
 				usb_do_work_check_vbus(ui);
