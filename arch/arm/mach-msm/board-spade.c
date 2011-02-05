@@ -1783,6 +1783,7 @@ __tagtable(ATAG_BDADDR, parse_tag_bdaddr);
 /* end */
 
 /* for bcm (sense roms) */
+/*
 static char bdaddress[20];
 extern unsigned char *get_bt_bd_ram(void);
 
@@ -1808,7 +1809,7 @@ MODULE_PARM_DESC(bt_chip_id, "BT's chip id");
 static char bt_fw_version[10] = "v2.0.38";
 module_param_string(bt_fw_version, bt_fw_version, sizeof(bt_fw_version), S_IWUSR | S_IRUGO);
 MODULE_PARM_DESC(bt_fw_version, "BT's fw version");
-
+*/
 /* end (sense) */
 
 static struct msm_i2c_device_platform_data msm_i2c_pdata = {
@@ -2067,7 +2068,7 @@ static void __init spade_init(void)
 	msm_clock_init();
 
 	/* for bcm (sense) */
-	bt_export_bd_address();
+	// bt_export_bd_address();
 
 #if defined(CONFIG_MSM_SERIAL_DEBUGGER)
 	if (!opt_disable_uart2)
@@ -2079,7 +2080,7 @@ static void __init spade_init(void)
 
 #ifdef CONFIG_SERIAL_MSM_HS
 	msm_device_uart_dm1.dev.platform_data = &msm_uart_dm1_pdata;
-	msm_device_uart_dm1.name = "msm_serial_hs_bcm";	/* for bcm */
+	// msm_device_uart_dm1.name = "msm_serial_hs_bcm";	/* for bcm */
 	msm_add_serial_devices(3);
 #else
 	msm_add_serial_devices(0);
