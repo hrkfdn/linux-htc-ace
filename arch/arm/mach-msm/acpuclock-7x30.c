@@ -77,11 +77,12 @@ struct clkctl_acpu_speed {
 static struct clock_state drv_state = { 0 };
 
 static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 245760 },
-	{ 1, 368640 },
-	{ 2, 768000 },
-	{ 3, 806400 },
-	{ 4, CPUFREQ_TABLE_END },
+	{ 0, 122880 },
+	{ 1, 245760 },
+	{ 2, 368640 },
+	{ 3, 768000 },
+	{ 4, 806400 },
+	{ 5, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
