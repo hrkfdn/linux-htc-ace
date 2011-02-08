@@ -12,6 +12,10 @@ config BCM4329
 	  If you choose to build a module, it'll be called dhd. Say M if
 	  unsure.
 
+config FIRST_SCAN
+	depends on BCM4329
+	bool "First scan by kernel"
+
 config BCM4329_FW_PATH
 	depends on BCM4329
 	string "Firmware path"
