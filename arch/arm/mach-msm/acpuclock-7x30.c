@@ -81,12 +81,15 @@ struct clkctl_acpu_speed {
 static struct clock_state drv_state = { 0 };
 
 static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 122880 },
-	{ 1, 245760 },
-	{ 2, 368640 },
+	{ 0, 245760 },
+	{ 1, 368640 },
+	{ 2, 576000 },
 	{ 3, 768000 },
 	{ 4, 806400 },
-	{ 5, CPUFREQ_TABLE_END },
+	{ 5, 960000 },
+	{ 6, 1024000 },
+	{ 7, 1200000 },
+	{ 8, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -100,11 +103,15 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440, 900, VDD_RAW(900) },
 	{ 245760, PLL_3,    5, 2,  61440,  900, VDD_RAW(900) },
 	{ 368640, PLL_3,    5, 1,  122800, 900, VDD_RAW(900) },
+	{ 576000, PLL_3,    5, 1,  192000, 975, VDD_RAW(975) },
 	{ 768000, PLL_1,    2, 0,  153600, 1025, VDD_RAW(1025) },
 	/* ACPU >= 806.4MHz requires MSMC1 @ 1.2V. Voting for
 	 * AXI @ 192MHz accomplishes this implicitly. 806.4MHz
 	 * is updated to 1024MHz at runtime for QSD8x55. */
-	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1050) },
+	{ 806400, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
+	{ 960000, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
+	{ 1024000, PLL_2,	3, 0,  192000, 1075, VDD_RAW(1075) },
+	{ 1200000, PLL_2,	3, 0,  192000, 1100, VDD_RAW(1100) },
 	{ 0 }
 };
 static unsigned long max_axi_rate;
@@ -504,7 +511,9 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
 	drv_state.wfi_ramp_down = 1;
 	drv_state.pwrc_ramp_down = 1;
-	pll2_fixup();
+	/* we don't need this, we know what cpu we are running on
+	 * and want to set our own max speeds (OC) */
+	// pll2_fixup();
 	acpuclk_init();
 	lpj_init();
 
