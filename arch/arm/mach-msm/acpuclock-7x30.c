@@ -104,7 +104,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	/* ACPU >= 806.4MHz requires MSMC1 @ 1.2V. Voting for
 	 * AXI @ 192MHz accomplishes this implicitly. 806.4MHz
 	 * is updated to 1024MHz at runtime for QSD8x55. */
-	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1100) },
+	{ 806400, PLL_2,    3, 0,  192000, 1100, VDD_RAW(1050) },
 	{ 0 }
 };
 static unsigned long max_axi_rate;
@@ -474,14 +474,14 @@ void __init pll2_fixup(void)
 	switch (pll2_l) {
 	case PLL2_1024_MHZ:
 		speed->acpu_clk_khz = 1024000;
-		speed->vdd_mv = 1200;
-		speed->vdd_raw = VDD_RAW(1200);
+		speed->vdd_mv = 1075;
+		speed->vdd_raw = VDD_RAW(1075);
 		cpu_freq->frequency = 1024000;
 		break;
 	case PLL2_1200_MHZ:
 		speed->acpu_clk_khz = 1200000;
-		speed->vdd_mv = 1200;
-		speed->vdd_raw = VDD_RAW(1200);
+		speed->vdd_mv = 1100;
+		speed->vdd_raw = VDD_RAW(1100);
 		cpu_freq->frequency = 1200000;
 		break;
 	case PLL2_806_MHZ:
