@@ -33,15 +33,11 @@
 #include "smd_private.h"
 #include "clock.h"
 #include "acpuclock.h"
+#include "socinfo.h"
 #include "spm.h"
 
 #define SCSS_CLK_CTL_ADDR	(MSM_ACC_BASE + 0x04)
 #define SCSS_CLK_SEL_ADDR	(MSM_ACC_BASE + 0x08)
-
-#define PLL2_L_VAL_ADDR		(MSM_CLK_CTL_BASE + 0x33C)
-#define PLL2_806_MHZ		42
-#define PLL2_1024_MHZ		53
-#define PLL2_1200_MHZ		125
 
 #define dprintk(msg...) \
 	cpufreq_debug_printk(CPUFREQ_DEBUG_DRIVER, "cpufreq-msm", msg)
@@ -57,11 +53,14 @@
 
 #define MAX_AXI_KHZ 192000
 
+#define PLL2_L_VAL_ADDR  (MSM_CLK_CTL_BASE + 0x33c)
+
 struct clock_state {
 	struct clkctl_acpu_speed	*current_speed;
 	struct mutex			lock;
 	uint32_t			acpu_switch_time_us;
 	uint32_t			vdd_switch_time_us;
+	unsigned long                   power_collapse_khz;
 	unsigned long			wait_for_irq_khz;
 	int				wfi_ramp_down;
 	int				pwrc_ramp_down;
@@ -81,15 +80,30 @@ struct clkctl_acpu_speed {
 static struct clock_state drv_state = { 0 };
 
 static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 245760 },
-	{ 1, 368640 },
-	{ 2, 576000 },
-	{ 3, 768000 },
-	{ 4, 806400 },
-	{ 5, 960000 },
-	{ 6, 1024000 },
-	{ 7, 1200000 },
-	{ 8, CPUFREQ_TABLE_END },
+	{ 0, 245000 },
+	{ 1, 422400 },
+	{ 2, 460800 },
+	{ 3, 499200 },
+	{ 4, 537600 },
+	{ 5, 576000 },
+	{ 6, 614400 },
+	{ 7, 652800 },
+	{ 8, 691200 },
+	{ 9, 729600 },
+	{ 10, 768000 },
+	{ 11, 806400 },
+	{ 12, 844800 },
+	{ 13, 883200 },
+	{ 14, 921600 },
+	{ 15, 960000 },
+	{ 16, 998400 },
+	{ 17, 1036800 },
+	{ 18, 1075200 },
+	{ 19, 1113600 },
+	{ 20, 1152000 },
+	{ 21, 1190400 },
+	{ 22, 1228800 },
+	{ 23, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -101,17 +115,29 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 122880, PLL_3,    5, 5,  61440,  900, VDD_RAW(900) },
 	{ 184320, PLL_3,    5, 4,  61440,  900, VDD_RAW(900) },
 	{ MAX_AXI_KHZ, SRC_AXI, 1, 0, 61440, 900, VDD_RAW(900) },
-	{ 245760, PLL_3,    5, 2,  61440,  900, VDD_RAW(900) },
-	{ 368640, PLL_3,    5, 1,  122800, 900, VDD_RAW(900) },
+	{ 245000, PLL_3,    5, 2,  122500, 900, VDD_RAW(900) },
+	{ 422400, PLL_3,    5, 1,  192000, 925, VDD_RAW(925) },
+	{ 460800, PLL_3,    5, 1,  192000, 950, VDD_RAW(950) },
+	{ 499200, PLL_1,    2, 0,  192000, 950, VDD_RAW(950) },
+	{ 537600, PLL_3,    5, 1,  192000, 975, VDD_RAW(975) },
 	{ 576000, PLL_3,    5, 1,  192000, 975, VDD_RAW(975) },
-	{ 768000, PLL_1,    2, 0,  153600, 1025, VDD_RAW(1025) },
-	/* ACPU >= 806.4MHz requires MSMC1 @ 1.2V. Voting for
-	 * AXI @ 192MHz accomplishes this implicitly. 806.4MHz
-	 * is updated to 1024MHz at runtime for QSD8x55. */
-	{ 806400, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
+	{ 614400, PLL_2,    3, 0,  192000, 975, VDD_RAW(975) },
+	{ 652800, PLL_2,    3, 0,  192000, 1000, VDD_RAW(975) },
+	{ 691200, PLL_2,    3, 0,  192000, 1000, VDD_RAW(1000) },
+	{ 729600, PLL_2,    3, 0,  192000, 1000, VDD_RAW(1000) },
+	{ 768000, PLL_2,    3, 0,  192000, 1025, VDD_RAW(1025) },
+	{ 806400, PLL_2,    3, 0,  192000, 1025, VDD_RAW(1025) },
+	{ 844800, PLL_2,    3, 0,  192000, 1025, VDD_RAW(1025) },
+	{ 883200, PLL_2,    3, 0,  192000, 1025, VDD_RAW(1025) },
+	{ 921600, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
 	{ 960000, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
-	{ 1024000, PLL_2,	3, 0,  192000, 1075, VDD_RAW(1075) },
-	{ 1200000, PLL_2,	3, 0,  192000, 1100, VDD_RAW(1100) },
+	{ 998400, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
+	{ 1036800, PLL_2,   3, 0,  192000, 1075, VDD_RAW(1050) },
+	{ 1075200, PLL_2,   3, 0,  192000, 1075, VDD_RAW(1050) },
+	{ 1113600, PLL_2,   3, 0,  192000, 1075, VDD_RAW(1050) },
+	{ 1152000, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1075) },
+	{ 1190400, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1075) },
+	{ 1228800, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1100) },
 	{ 0 }
 };
 static unsigned long max_axi_rate;
@@ -120,23 +146,26 @@ static unsigned long max_axi_rate;
 unsigned long acpuclk_power_collapse(int from_idle)
 {
 	int ret = acpuclk_get_rate();
-	if (drv_state.pwrc_ramp_down)
-		acpuclk_set_rate(POWER_COLLAPSE_HZ, SETRATE_PC);
-	return ret * 1000;
+	ret *= 1000;
+	if (ret > drv_state.power_collapse_khz)
+		acpuclk_set_rate(drv_state.power_collapse_khz,
+	(from_idle ? SETRATE_PC_IDLE : SETRATE_PC));
+	return ret;
 }
 
 unsigned long acpuclk_get_wfi_rate(void)
 {
-	return drv_state.wait_for_irq_khz * 1000;
+	return drv_state.wait_for_irq_khz;
 }
 
 #define WAIT_FOR_IRQ_HZ (MAX_AXI_KHZ * 1000)
 unsigned long acpuclk_wait_for_irq(void)
 {
 	int ret = acpuclk_get_rate();
-	if (drv_state.wfi_ramp_down)
-		acpuclk_set_rate(WAIT_FOR_IRQ_HZ, SETRATE_SWFI);
-	return ret * 1000;
+	ret *= 1000;
+	if (ret > drv_state.wait_for_irq_khz)
+		acpuclk_set_rate(drv_state.wait_for_irq_khz, SETRATE_SWFI);
+	return ret;
 }
 
 static int acpuclk_set_acpu_vdd(struct clkctl_acpu_speed *s)
@@ -166,6 +195,11 @@ static void acpuclk_set_src(const struct clkctl_acpu_speed *s)
 	reg_clkctl |= s->acpu_src_sel << (4 + 8 * src_sel);
 	reg_clkctl |= s->acpu_src_div << (0 + 8 * src_sel);
 	writel(reg_clkctl, SCSS_CLK_CTL_ADDR);
+
+	/* Program PLL2 L val for overclocked speeds. */
+	if(s->src == PLL_2) {
+		writel(s->acpu_clk_khz/19200, PLL2_L_VAL_ADDR);
+	}
 
 	/* Toggle clock source. */
 	reg_clksel ^= 1;
@@ -462,44 +496,6 @@ static void __init lpj_init(void)
 	}
 }
 
-/* Update frequency tables for PLL2. */
-void __init pll2_fixup(void)
-{
-	struct clkctl_acpu_speed *speed;
-	struct cpufreq_frequency_table *cpu_freq;
-	u8 pll2_l;
-
-	pll2_l = readl(PLL2_L_VAL_ADDR) & 0xFF;
-	speed = &acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl)-2];
-	cpu_freq = &freq_table[ARRAY_SIZE(freq_table)-2];
-
-	if (speed->acpu_clk_khz != 806400 || cpu_freq->frequency != 806400) {
-		pr_err("Frequency table fixups for PLL2 rate failed.\n");
-		BUG();
-	}
-
-	switch (pll2_l) {
-	case PLL2_1024_MHZ:
-		speed->acpu_clk_khz = 1024000;
-		speed->vdd_mv = 1075;
-		speed->vdd_raw = VDD_RAW(1075);
-		cpu_freq->frequency = 1024000;
-		break;
-	case PLL2_1200_MHZ:
-		speed->acpu_clk_khz = 1200000;
-		speed->vdd_mv = 1100;
-		speed->vdd_raw = VDD_RAW(1100);
-		cpu_freq->frequency = 1200000;
-		break;
-	case PLL2_806_MHZ:
-		/* No fixup necessary */
-		break;
-	default:
-		pr_err("Unknown PLL2 lval %d\n", pll2_l);
-		BUG();
-	}
-}
-
 #define RPM_BYPASS_MASK	(1 << 3)
 #define PMIC_MODE_MASK	(1 << 4)
 void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
@@ -509,15 +505,14 @@ void __init msm_acpu_clock_init(struct msm_acpu_clock_platform_data *clkdata)
 	mutex_init(&drv_state.lock);
 	drv_state.acpu_switch_time_us = clkdata->acpu_switch_time_us;
 	drv_state.vdd_switch_time_us = clkdata->vdd_switch_time_us;
+	drv_state.power_collapse_khz = clkdata->power_collapse_khz;
 	drv_state.wfi_ramp_down = 1;
 	drv_state.pwrc_ramp_down = 1;
-	/* we don't need this, we know what cpu we are running on
-	 * and want to set our own max speeds (OC) */
-	// pll2_fixup();
 	acpuclk_init();
 	lpj_init();
 
 	cpufreq_frequency_table_get_attr(freq_table, smp_processor_id());
 	register_acpuclock_debug_dev(&acpu_debug_7x30);
 }
+
 
