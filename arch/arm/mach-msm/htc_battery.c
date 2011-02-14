@@ -185,7 +185,7 @@ static struct power_supply htc_power_supplies[] = {
 };
 
 static int update_batt_info(void);
-//static int g_usb_online;
+static int g_usb_online;
 
 /* Move cable detection/notification to standard PMIC RPC. */
 static BLOCKING_NOTIFIER_HEAD(cable_status_notifier_list);
@@ -595,7 +595,7 @@ EXPORT_SYMBOL(htc_get_usb_accessory_adc_level);
 and then usb driver will notify AC while D+/D- Line short. */
 void notify_usb_connected(int online)
 {
-#if 1
+#if 0
 	pr_info("batt:online=%d",online);
 	/* TODO: replace charging_source to usb_status */
 	htc_batt_info.rep.charging_source = online;
