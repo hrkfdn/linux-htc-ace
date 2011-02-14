@@ -157,6 +157,22 @@ static struct platform_device usb_mass_storage_device = {
 	},
 };
 
+#ifdef CONFIG_USB_ANDROID_RNDIS
+static struct usb_ether_platform_data rndis_pdata = {
+	/* ethaddr is filled by board_serialno_setup */
+	.vendorID	= 0x18d1,
+	.vendorDescr	= "Google, Inc.",
+};
+
+static struct platform_device rndis_device = {
+	.name	= "rndis",
+	.id	= -1,
+	.dev	= {
+		.platform_data = &rndis_pdata,
+	},
+};
+#endif
+
 static struct android_usb_platform_data android_usb_pdata = {
 	.vendor_id	= 0x0bb4,
 	.product_id	= 0x0ca2,
@@ -1704,6 +1720,9 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&msm_device_smd,
 	&spade_rfkill,
+#ifdef CONFIG_USB_ANDROID_RNDIS
+        &rndis_device,
+#endif
 #ifdef CONFIG_I2C_SSBI
 	&msm_device_ssbi6,
 	&msm_device_ssbi7,
