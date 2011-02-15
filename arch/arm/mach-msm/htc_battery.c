@@ -438,13 +438,13 @@ static int htc_set_smem_cable_type(u32 cable_type);
 #else
 static int htc_set_smem_cable_type(u32 cable_type) { return -1; }
 #endif
-#if 1 //JH //this is for packet filter (notify port list while USB in/out)
+#if 0 //JH //this is for packet filter (notify port list while USB in/out)
 int update_port_list_charging_state(int enable);
 #endif 
 static int htc_cable_status_update(int status)
 {
 	int rc = 0;
-//	unsigned last_source;
+	unsigned last_source;
 
 	if (!htc_battery_initial)
 		return 0;
@@ -455,7 +455,7 @@ static int htc_cable_status_update(int status)
 	}
 
 	mutex_lock(&htc_batt_info.lock);
-#if 1
+#if 0
 	pr_info("batt: %s: %d -> %d\n", __func__, htc_batt_info.rep.charging_source, status);
 	if (status == htc_batt_info.rep.charging_source) {
 	/* When cable overvoltage(5V => 7V) A9 will report the same source, so only sent the uevent */
@@ -522,7 +522,7 @@ static int htc_cable_status_update(int status)
 			htc_batt_info.rep.charging_source, NULL);
 
 	if (htc_batt_info.rep.charging_source != last_source) {
-#if 1 //JH //this is for packet filter (notify port list while USB in/out)
+#if 0 //JH //this is for packet filter (notify port list while USB in/out)
 		update_port_list_charging_state(!(htc_batt_info.rep.charging_source == CHARGER_BATTERY));
 #endif
 		/* Lock suspend only when USB in for ADB or other USB functions. */
@@ -615,18 +615,21 @@ void notify_usb_connected(int online)
 	}
 	update_wake_lock(htc_batt_info.rep.charging_source);
 #else
-	mutex_lock(&htc_batt_info.lock);
-	if (htc_batt_debug_mask & HTC_BATT_DEBUG_USB_NOTIFY)
-		BATT_LOG("%s: online=%d, g_usb_online=%d", __func__, online, g_usb_online);
-	if (g_usb_online != online) {
-		g_usb_online = online;
-		if (online == CHARGER_AC && htc_batt_info.rep.charging_source == CHARGER_USB) {
-			mutex_unlock(&htc_batt_info.lock);
-			htc_cable_status_update(CHARGER_AC);
-			mutex_lock(&htc_batt_info.lock);
-		}
-	}
-	mutex_unlock(&htc_batt_info.lock);
+        mutex_lock(&htc_batt_info.lock);
+
+	pr_info("batt: %s: online=%d, g_usb_online=%d", __func__, online, g_usb_online);
+
+        if (g_usb_online != online) {
+                g_usb_online = online;
+                if (online && htc_batt_info.rep.charging_source == CHARGER_AC) {
+                        mutex_unlock(&htc_batt_info.lock);
+                        htc_cable_status_update(CHARGER_USB);
+                        mutex_lock(&htc_batt_info.lock);
+                } else if (online) {
+                        pr_info("batt: warning: usb connected but charging source=%d", htc_batt_info.rep.charging_source);
+                }
+        }
+        mutex_unlock(&htc_batt_info.lock);
 #endif
 }
 
