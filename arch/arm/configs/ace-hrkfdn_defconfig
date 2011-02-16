@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.32.21-ck2-hrkfdn
-# Mon Feb  7 19:36:47 2011
+# Sun Feb 13 19:26:32 2011
 #
 CONFIG_ARM=y
 CONFIG_SYS_SUPPORTS_APM_EMULATION=y
@@ -944,7 +944,7 @@ CONFIG_WLAN=y
 # CONFIG_WLAN_PRE80211 is not set
 # CONFIG_WLAN_80211 is not set
 CONFIG_BCM4329=m
-CONFIG_BCM4329_SOFTAP=y
+CONFIG_FIRST_SCAN=y
 CONFIG_BCM4329_FW_PATH="/system/etc/firmware/fw_bcm4329.bin"
 CONFIG_BCM4329_NVRAM_PATH="/proc/calibration"
 
