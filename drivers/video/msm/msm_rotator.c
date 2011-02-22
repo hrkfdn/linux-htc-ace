@@ -136,9 +136,11 @@ struct msm_rotator_dev {
 	struct clk *pclk;
 	struct clk *axi_clk;
 	int rot_clk_state;
+	int rot_clk_off_bysuspend;
 	struct delayed_work rot_clk_work;
 	struct clk *imem_clk;
 	int imem_clk_state;
+	int imem_clk_off_bysuspend;
 	struct delayed_work imem_clk_work;
 	struct platform_device *pdev;
 	struct cdev cdev;
@@ -1050,6 +1052,9 @@ static int __devinit msm_rotator_probe(struct platform_device *pdev)
 	msm_rotator_dev->imem_owner = IMEM_NO_OWNER;
 	mutex_init(&msm_rotator_dev->imem_lock);
 
+	msm_rotator_dev->rot_clk_off_bysuspend = 0;
+	msm_rotator_dev->imem_clk_off_bysuspend = 0;
+
 	msm_rotator_dev->imem_clk_state = CLK_DIS;
 	INIT_DELAYED_WORK(&msm_rotator_dev->imem_clk_work,
 			  msm_rotator_imem_clk_work_f);
@@ -1225,6 +1230,7 @@ static int msm_rotator_suspend(struct platform_device *dev, pm_message_t state)
 		printk(KERN_DEBUG "%s(%d) clk_disable clkstate %d", __func__, __LINE__, msm_rotator_dev->imem_clk_state);
 		msm_rotator_dev->imem_clk_state = CLK_DIS;
 		clk_disable(msm_rotator_dev->imem_clk);
+		msm_rotator_dev->imem_clk_off_bysuspend = 1;
 	}
 	mutex_unlock(&msm_rotator_dev->imem_lock);
 
@@ -1232,6 +1238,7 @@ static int msm_rotator_suspend(struct platform_device *dev, pm_message_t state)
 	if (msm_rotator_dev->rot_clk_state == CLK_EN) {
 		msm_rotator_dev->rot_clk_state = CLK_DIS;
 		disable_rot_clks();
+		msm_rotator_dev->rot_clk_off_bysuspend = 1;
 	}
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	return 0;
@@ -1240,17 +1247,23 @@ static int msm_rotator_suspend(struct platform_device *dev, pm_message_t state)
 static int msm_rotator_resume(struct platform_device *dev)
 {
 	mutex_lock(&msm_rotator_dev->imem_lock);
-	if (msm_rotator_dev->imem_clk_state == CLK_DIS) {
-		printk(KERN_DEBUG "%s(%d) clk_enable clkstate %d", __func__, __LINE__, msm_rotator_dev->imem_clk_state);
-		msm_rotator_dev->imem_clk_state = CLK_EN;
-		clk_enable(msm_rotator_dev->imem_clk);
+	if(msm_rotator_dev->imem_clk_off_bysuspend) {
+		if (msm_rotator_dev->imem_clk_state == CLK_DIS) {
+			printk(KERN_DEBUG "%s(%d) clk_enable clkstate %d", __func__, __LINE__, msm_rotator_dev->imem_clk_state);
+			msm_rotator_dev->imem_clk_state = CLK_EN;
+			clk_enable(msm_rotator_dev->imem_clk);
+		}
+		msm_rotator_dev->imem_clk_off_bysuspend = 0;
 	}
 	mutex_unlock(&msm_rotator_dev->imem_lock);
 
 	mutex_lock(&msm_rotator_dev->rotator_lock);
-	if (msm_rotator_dev->rot_clk_state == CLK_DIS) {
-		msm_rotator_dev->rot_clk_state = CLK_EN;
-		enable_rot_clks();
+	if(msm_rotator_dev->rot_clk_off_bysuspend) {
+		if (msm_rotator_dev->rot_clk_state == CLK_DIS) {
+			msm_rotator_dev->rot_clk_state = CLK_EN;
+			enable_rot_clks();
+		}
+		msm_rotator_dev->rot_clk_off_bysuspend = 0;
 	}
 	mutex_unlock(&msm_rotator_dev->rotator_lock);
 	return 0;

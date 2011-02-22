@@ -47,6 +47,7 @@
 #define ACOUSTIC_MIC_DISABLE	_IOW(ACOUSTIC_IOCTL_MAGIC, 29, int)
 #define ACOUSTIC_REINIT_ACDB    _IOW(ACOUSTIC_IOCTL_MAGIC, 30, unsigned)
 #define ACOUSTIC_GET_BACK_MIC_STATE	_IOW(ACOUSTIC_IOCTL_MAGIC, 31, int)
+#define ACOUSTIC_GET_TABLES 	_IOW(ACOUSTIC_IOCTL_MAGIC, 33, unsigned)
 
 #define D(fmt, args...) printk(KERN_INFO "htc-acoustic: "fmt, ##args)
 #define E(fmt, args...) printk(KERN_ERR "htc-acoustic: "fmt, ##args)
@@ -352,6 +353,23 @@ acoustic_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			E("acoustic_ioctl: ACOUSTIC_GET_BACK_MIC_STATE failed\n");
 			rc = -EFAULT;
 		}
+		break;
+	}
+	case ACOUSTIC_GET_TABLES: {
+		if (the_ops->get_acoustic_tables) {
+			struct acoustic_tables tb;
+			memset(tb.aic3254, '\0', PROPERTY_VALUE_MAX);
+			memset(tb.adie, '\0', PROPERTY_VALUE_MAX);
+			memset(tb.spkamp, '\0', PROPERTY_VALUE_MAX);
+			memset(tb.acdb, '\0', PROPERTY_VALUE_MAX);
+			the_ops->get_acoustic_tables(&tb);
+			if (copy_to_user((void *) arg,
+				&tb, sizeof(tb))) {
+				E("acoustic_ioctl: ACOUSTIC_ACOUSTIC_GET_TABLES failed\n");
+				rc = -EFAULT;
+			}
+		} else
+			rc = -EFAULT;
 		break;
 	}
 	default:

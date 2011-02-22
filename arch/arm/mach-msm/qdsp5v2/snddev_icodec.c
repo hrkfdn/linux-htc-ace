@@ -292,16 +292,12 @@ static int snddev_icodec_open_rx(struct snddev_icodec_state *icodec)
 
 	/* enable MI2S RX master block */
 	/* enable MI2S RX bit clock */
-
-	if (!support_aic3254) {
-		trc = clk_set_rate(drv->rx_mclk,
+	trc = clk_set_rate(drv->rx_mclk,
 			SNDDEV_ICODEC_CLK_RATE(icodec->sample_rate));
-		if (IS_ERR_VALUE(trc))
-			goto error_invalid_freq;
+	if (IS_ERR_VALUE(trc))
+		goto error_invalid_freq;
 
-		clk_enable(drv->rx_mclk);
-	}
-
+	clk_enable(drv->rx_mclk);
 	clk_enable(drv->rx_sclk);
 	/* clk_set_rate(drv->lpa_codec_clk, 1); */ /* Remove if use pcom */
 	clk_enable(drv->lpa_p_clk);
@@ -374,8 +370,7 @@ error_lpa:
 	clk_disable(drv->lpa_codec_clk);
 	clk_disable(drv->lpa_core_clk);
 	clk_disable(drv->rx_sclk);
-	if (!support_aic3254)
-		clk_disable(drv->rx_mclk);
+	clk_disable(drv->rx_mclk);
 error_invalid_freq:
 
 	pr_err("%s: encounter error\n", __func__);
@@ -481,8 +476,7 @@ static int snddev_icodec_close_rx(struct snddev_icodec_state *icodec)
 	/* Disable MI2S RX master block */
 	/* Disable MI2S RX bit clock */
 	clk_disable(drv->rx_sclk);
-	if (!support_aic3254)
-		clk_disable(drv->rx_mclk);
+	clk_disable(drv->rx_mclk);
 	icodec->enabled = 0;
 
 	wake_unlock(&drv->rx_idlelock);

@@ -570,7 +570,11 @@ int msm_snddev_request_freq(int *freq, u32 session_id,
 				continue;
 			}
 			set_freq = MAX(*freq, info->set_sample_rate);
-
+			if (set_freq == info->set_sample_rate) {
+				rc = info->set_sample_rate;
+				*freq = info->set_sample_rate;
+				continue;
+			}
 
 			if (clnt_type == AUDDEV_CLNT_DEC) {
 				routing_info.dec_freq[session_id].evt = 1;

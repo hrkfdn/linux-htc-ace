@@ -39,54 +39,62 @@ static atomic_t aic3254_ctl = ATOMIC_INIT(0);
 #define BIT_FM_SPK	(1 << 3)
 #define BIT_FM_HS	(1 << 4)
 
-static struct q5v2_hw_info q5v2_audio_hw[Q5V2_HW_COUNT] = {
+static struct q5v2_hw_info_percentage q5v2_audio_hw[Q5V2_HW_COUNT] = {
 	[Q5V2_HW_HANDSET] = {
-		.max_gain[VOC_NB_INDEX] = 400,
-		.min_gain[VOC_NB_INDEX] = -1600,
-		.max_gain[VOC_WB_INDEX] = 400,
-		.min_gain[VOC_WB_INDEX] = -1600,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-2000, -1500, -1000, -700, -100, 400, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-1000, -600, -200, 200, 600, 1000, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_HEADSET] = {
-		.max_gain[VOC_NB_INDEX] = 900,
-		.min_gain[VOC_NB_INDEX] = -1100,
-		.max_gain[VOC_WB_INDEX] = 900,
-		.min_gain[VOC_WB_INDEX] = -1100,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-1600, -1200, -800, -300, 100, 700, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-1600, -1200, -800, -300, 100, 700, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_SPEAKER] = {
-		.max_gain[VOC_NB_INDEX] = 1000,
-		.min_gain[VOC_NB_INDEX] = -500,
-		.max_gain[VOC_WB_INDEX] = 1000,
-		.min_gain[VOC_WB_INDEX] = -500,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-500, -200, 100, 400, 700, 1000, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-500, -200, 100, 400, 700, 1000, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_BT_SCO] = {
-		.max_gain[VOC_NB_INDEX] = 0,
-		.min_gain[VOC_NB_INDEX] = -1500,
-		.max_gain[VOC_WB_INDEX] = 0,
-		.min_gain[VOC_WB_INDEX] = -1500,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-1500, -1200, -900, -600, -300, 0, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-1500, -1200, -900, -600, -300, 0, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_TTY] = {
-		.max_gain[VOC_NB_INDEX] = 0,
-		.min_gain[VOC_NB_INDEX] = 0,
-		.max_gain[VOC_WB_INDEX] = 0,
-		.min_gain[VOC_WB_INDEX] = 0,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-1600, -1200, -800, -300, 100, 700, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-1600, -1200, -800, -300, 100, 700, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_HS_SPKR] = {
-		.max_gain[VOC_NB_INDEX] = -500,
-		.min_gain[VOC_NB_INDEX] = -2000,
-		.max_gain[VOC_WB_INDEX] = -500,
-		.min_gain[VOC_WB_INDEX] = -2000,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-2000, -1700, -1400, -1100, -800, -500, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-2000, -1700, -1400, -1100, -800, -500, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_USB_HS] = {
-		.max_gain[VOC_NB_INDEX] = 1000,
-		.min_gain[VOC_NB_INDEX] = -500,
-		.max_gain[VOC_WB_INDEX] = 1000,
-		.min_gain[VOC_WB_INDEX] = -500,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-500, -200, 100, 400, 700, 1000, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-500, -200, 100, 400, 700, 1000, 0, 0, 0, 0},
 	},
 	[Q5V2_HW_HAC] = {
-		.max_gain[VOC_NB_INDEX] = 1000,
-		.min_gain[VOC_NB_INDEX] = -500,
-		.max_gain[VOC_WB_INDEX] = 1000,
-		.min_gain[VOC_WB_INDEX] = -500,
+		.max_step = 6,
+		.gain[VOC_NB_INDEX] =
+		{-500, -200, 100, 400, 700, 1000, 0, 0, 0, 0},
+		.gain[VOC_WB_INDEX] =
+		{-500, -200, 100, 400, 700, 1000, 0, 0, 0, 0},
 	},
 };
 
@@ -216,7 +224,9 @@ void spade_mic_enable(int en, int shift)
 void spade_snddev_imic_pamp_on(int en)
 {
 	pr_info("%s %d\n", __func__, en);
-	spade_mic_enable(en, 0);
+	/* Base on sequence of routing path, tx is opend after rx is enabled.
+	 * Therefore, power on micbias by A3254 to avoid pop sound */
+	/* spade_mic_enable(en, 0); */
 }
 
 void spade_snddev_emic_pamp_on(int en)
@@ -242,6 +252,7 @@ void spade_snddev_fmspk_pamp_on(int en)
 void spade_snddev_fmhs_pamp_on(int en)
 {
 	if (en) {
+		msleep(60);
 		gpio_set_value(PM8058_GPIO_PM_TO_SYS(SPADE_AUD_HP_EN), 1);
 		if (!atomic_read(&aic3254_ctl))
 			curr_rx_mode |= BIT_FM_HS;
@@ -255,13 +266,14 @@ void spade_snddev_fmhs_pamp_on(int en)
 
 int spade_get_rx_vol(uint8_t hw, int network, int level)
 {
-	struct q5v2_hw_info *info;
-	int vol, maxv, minv;
+	struct q5v2_hw_info_percentage *info;
+	int vol;
 
 	info = &q5v2_audio_hw[hw];
-	maxv = info->max_gain[network];
-	minv = info->min_gain[network];
-	vol = minv + ((maxv - minv) * level) / 100;
+
+	level = (level > 100)? 100 : ((level < 0) ? 0 : level);
+	vol = info->gain[network][(uint32_t)((info->max_step - 1) * level / 100)];
+
 	pr_info("%s(%d, %d, %d) => %d\n", __func__, hw, network, level, vol);
 	return vol;
 }
@@ -286,6 +298,12 @@ void spade_rx_amp_enable(int en)
 	}
 }
 
+void spade_tx_amp_enable(int en)
+{
+	pr_info("%s %d\n", __func__, en);
+	spade_mic_enable(en, 0);
+}
+
 int spade_support_aic3254(void)
 {
 	return 1;
@@ -293,11 +311,26 @@ int spade_support_aic3254(void)
 
 int spade_support_back_mic(void)
 {
+#ifdef CONFIG_HTC_VOICE_DUALMIC
+	return 1;
+#else
 	if (system_rev < 4)
 		/* the stage before XE board */
 		return 1;
 	else
 		return 0;
+#endif
+}
+
+void spade_get_acoustic_tables(struct acoustic_tables *tb)
+{
+	pr_info("%s: system_rev %d", __func__, system_rev);
+	/* configuration that main clock of A3254 comes from MCLK */
+	if (system_rev > 5) {
+		strcpy(tb->aic3254_dsp, "CodecDSPID_MCLK.txt");
+		strcpy(tb->aic3254,
+				"AIC3254_REG_DualMic_MCLK.csv");
+	}
 }
 
 static struct q5v2audio_analog_ops ops = {
@@ -328,10 +361,12 @@ static struct acoustic_ops acoustic = {
 	.enable_mic_bias = spade_mic_enable,
 	.support_aic3254 = spade_support_aic3254,
 	.support_back_mic = spade_support_back_mic,
+	.get_acoustic_tables = spade_get_acoustic_tables
 };
 
 static struct aic3254_ctl_ops cops = {
 	.rx_amp_enable = spade_rx_amp_enable,
+	.tx_amp_enable = spade_tx_amp_enable,
 	.panel_sleep_in = spade_panel_sleep_in
 };
 

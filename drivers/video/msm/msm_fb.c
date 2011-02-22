@@ -78,7 +78,9 @@ module_param_named(msmfb_debug_mask, msmfb_debug_mask, int,
 		   S_IRUGO | S_IWUSR | S_IWGRP);
 
 struct mdp_device *mdp;
+#ifdef CONFIG_FB_MSM_OVERLAY
 static atomic_t mdpclk_on = ATOMIC_INIT(1);
+#endif
 
 struct msmfb_info {
 	struct fb_info *fb;
@@ -118,16 +120,6 @@ struct msmfb_info {
 	ktime_t vsync_request_time;
 	unsigned fb_resumed;
 };
-
-#ifdef CONFIG_FB_MSM_OVERLAY
-#define USE_OVERLAY	1
-struct overlay_waitevent{
-	uint32_t waked_up;
-	wait_queue_head_t event_wait;
-};
-static struct overlay_waitevent overlay_event;
-DEFINE_MUTEX(overlay_event_lock);
-#endif
 
 #if (defined(CONFIG_USB_FUNCTION_PROJECTOR) || defined(CONFIG_USB_ANDROID_PROJECTOR))
 static spinlock_t fb_data_lock = SPIN_LOCK_UNLOCKED;
@@ -523,14 +515,7 @@ static void msmfb_suspend(struct early_suspend *h)
 	struct msm_panel_data *panel = msmfb->panel;
 	/* suspend the panel */
 #ifdef CONFIG_FB_MSM_OVERLAY
-	/*check whether overlay done*/
-	wait_event_interruptible_timeout(
-		overlay_event.event_wait,
-		(overlay_event.waked_up == ~USE_OVERLAY),
-		10*HZ);
-	/*wait until USE_OVERLAY flag is off and set mdpclk_on as off*/
 	atomic_set(&mdpclk_on, 0);
-	pr_info("wait event : %X\n", overlay_event.waked_up);
 #endif
 	panel->suspend(panel);
 	msmfb->fb_resumed = 0;
@@ -583,14 +568,7 @@ static void msmfb_onchg_suspend(struct early_suspend *h)
 	struct msm_panel_data *panel = msmfb->panel;
 	/* suspend the panel */
 #ifdef CONFIG_FB_MSM_OVERLAY
-	/*check whether overlay done*/
-	wait_event_interruptible_timeout(
-		overlay_event.event_wait,
-		(overlay_event.waked_up == ~USE_OVERLAY),
-		10*HZ);
-	/*wait until USE_OVERLAY flag is off and set mdpclk_on as off*/
 	atomic_set(&mdpclk_on, 0);
-	pr_info("wait event : %X\n", overlay_event.waked_up);
 #endif
 	panel->suspend(panel);
 	msmfb->fb_resumed = 0;
@@ -626,7 +604,9 @@ static void msmfb_resume(struct work_struct *work)
 	msmfb->fb_resumed = 1;
 	wake_up(&msmfb->frame_wq);
 
+#ifdef CONFIG_FB_MSM_OVERLAY
 	atomic_set(&mdpclk_on, 1);
+#endif
 }
 #endif
 
@@ -868,20 +848,12 @@ static int msmfb_ioctl(struct fb_info *p, unsigned int cmd, unsigned long arg)
 		if(!atomic_read(&mdpclk_on)) {
 			printk(KERN_ERR "MSMFB_OVERLAY_SET during suspend\n");
 			ret = -EINVAL;
-		} else {
-			mutex_lock(&overlay_event_lock);
-			overlay_event.waked_up = USE_OVERLAY;
-			mutex_unlock(&overlay_event_lock);
+		} else
 			ret = msmfb_overlay_set(p, argp);
-		}
 		printk(KERN_INFO "MSMFB_OVERLAY_SET ret=%d\n", ret);
 		break;
 	case MSMFB_OVERLAY_UNSET:
 		ret = msmfb_overlay_unset(p, argp);
-		mutex_lock(&overlay_event_lock);
-		overlay_event.waked_up = ~USE_OVERLAY;
-		wake_up(&overlay_event.event_wait);
-		mutex_unlock(&overlay_event_lock);
 		printk(KERN_INFO "MSMFB_OVERLAY_UNSET ret=%d\n", ret);
 		break;
 	case MSMFB_OVERLAY_PLAY:
@@ -1156,13 +1128,6 @@ static int msmfb_probe(struct platform_device *pdev)
 		goto error_register_framebuffer;
 
 	msmfb->sleeping = WAKING;
-
-#ifdef CONFIG_FB_MSM_OVERLAY
-	/*init wait event*/
-	init_waitqueue_head(&overlay_event.event_wait);
-	/*init waked_up value*/
-	overlay_event.waked_up = ~USE_OVERLAY;
-#endif
 
 #ifdef CONFIG_FB_MSM_LOGO
 	if (!load_565rle_image(INIT_IMAGE_FILE)) {

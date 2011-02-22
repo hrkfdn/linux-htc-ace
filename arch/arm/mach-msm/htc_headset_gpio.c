@@ -159,11 +159,11 @@ static int audiojack_probe(struct platform_device *pdev)
 		if (ret < 0)
 			goto err_set_detect_gpio;
 
-		hi->hpin_irq = gpio_to_irq(hi->pdata.hpin_gpio);
-		if (hi->hpin_irq < 0) {
-			ret = hi->hpin_irq;
+		ret = gpio_to_irq(hi->pdata.hpin_gpio);
+		if (ret < 0)
 			goto err_gpio_to_irq;
-		}
+		else
+			hi->hpin_irq = (unsigned int) ret;
 
 		ret = request_irq(hi->hpin_irq, detect_irq_handler,
 				  IRQF_TRIGGER_LOW, "HS_GPIO_DETECT", NULL);

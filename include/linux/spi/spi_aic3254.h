@@ -55,6 +55,11 @@ struct CODEC_CFG {
 #define AIC3254_MAX_REGS        128
 #define AIC3254_MAX_RETRY	10
 
+#define IO_CTL_ROW_MAX		64
+#define IO_CTL_COL_MAX		1024
+#define MINIDSP_ROW_MAX		32
+#define MINIDSP_COL_MAX		16384
+
 enum aic3254_uplink_mode {
 	INITIAL = 0,
 	CALL_UPLINK_IMIC_RECEIVER = 1,

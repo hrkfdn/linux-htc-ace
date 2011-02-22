@@ -366,6 +366,52 @@ config MACH_LIBERTY
 	help
 	  Support for Liberty (PDA phone).
 
+config MACH_VISION
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 VISION"
+       help
+         Support for the Qualcomm MSM7x30 Vision board.
+
+config MACH_LEXIKON
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 LEXIKON"
+       help
+         Support for the Qualcomm MSM7x30 Lexikon board.
+
+config MACH_SPEEDY
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 SPEEDY"
+       help
+         Support for the Qualcomm MSM7x30 Speedy board.
+
+config MACH_MECHA
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 MECHA"
+       help
+         Support for the Qualcomm MSM7x30 Mecha board.
+
+config QCT_LTE
+	depends on MACH_MECHA
+        bool "Support QCT LTE function"
+        default n
+        help
+          For QCT LTE function, we need new rpcrouter and smd drivers.
+
+config MACH_GLACIER
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 GLACIER"
+       help
+         Support for the Qualcomm MSM7x30 Glacier board.
 
 config MACH_SPADE
        depends on ARCH_MSM7X30
@@ -374,6 +420,38 @@ config MACH_SPADE
        bool "MSM7x30 SPADE"
        help
          Support for the Qualcomm MSM7x30 Spade board.
+
+config MACH_DYNASTY
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 DYNASTY"
+       help
+         Support for the Qualcomm MSM7x30 Dynasty board.
+
+config MACH_FLYER
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 FLYER"
+       help
+         Support for the Qualcomm MSM7x30 Flyer board.
+
+config MACH_VIVO
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 VIVO"
+       help
+         Support for the Qualcomm MSM7x30 Vivo board.
+
+config MACH_VIVOW
+       depends on ARCH_MSM7X30
+       depends on !MSM_STACKED_MEMORY
+       default n
+       bool "MSM7x30 VIVOW"
+       help
+         Support for the Qualcomm MSM7x30 Vivo_w board.
 
 config PANEL_SELF_REFRESH
        depends on MACH_SPADE
@@ -401,10 +479,6 @@ config HTC_PWRSINK
 	depends on MSM_SMD
 	default y
 	bool "HTC Power Sink Driver"
-
-config HTC_POWER_COLLAPSE_MAGIC
-	default n
-	bool "Check Power Collapse State"
 
 config MSM_SPM
 	bool "Subsystem Power Manager"
@@ -1027,6 +1101,13 @@ config MICROP_COMMON
 	help
 	  HTC Microp-P support.
 
+config HTC_VOICE_DUALMIC
+	tristate "HTC Dualmic functionality"
+        depends on (ARCH_MSM7X30)
+        default n
+        help
+          Enable dual-mic functinality to do noise suppresion during voice call.
+
 config HTC_HEADSET_MGR
 	tristate "HTC headset manager driver"
 	default n
@@ -1179,4 +1260,10 @@ config PROC_COMM_TIMEOUT_RESET
     help
 		To reset device while modem hang, and cannot respond proc_comm.
 		Enable this might cause slight overhead on each proc_comm call.
+
+config HTC_QUICKBOOT_OFFMODE_ALARM
+        bool "Support HTC quickboot offmode alarm."
+        default n
+        help
+                support HTC quickboot offmode alarm.
 

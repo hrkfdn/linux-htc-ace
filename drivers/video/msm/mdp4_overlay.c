@@ -79,8 +79,6 @@
 #include <linux/mutex.h>
 
 #include "mdp_hw.h"
-//#include "mdp.h"
-//#include "msm_fb.h"
 #include "mdp4.h"
 
 #define OVERLAY_UPDATE_SCREEN		6	/*Refer to user_data field in struct mdp_overlay*/
@@ -122,6 +120,47 @@ struct mdp4_overlay_ctrl {
 
 static struct mdp4_overlay_ctrl *ctrl = &mdp4_overlay_db;
 
+void mdp4_overlay_parameters_check(struct mdp4_overlay_pipe *pipe)
+{
+	uint32_t dst_neww = 0, dst_newh = 0;
+
+	if(pipe == NULL || pipe->mdp == NULL)
+		return;
+
+	if(pipe->dst_x < 0 || pipe->dst_x > pipe->mdp->mdp_dev.width) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dstx=%d", __func__, __LINE__, pipe->dst_x);
+		pipe->dst_x = 0;
+	}
+
+	if(pipe->dst_y < 0 || pipe->dst_y > pipe->mdp->mdp_dev.height) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
+		pipe->dst_y = 0;
+	}
+
+	if(pipe->dst_w < 0 || pipe->dst_w > pipe->mdp->mdp_dev.width) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dstw=%d", __func__, __LINE__, pipe->dst_w);
+		pipe->dst_w = pipe->mdp->mdp_dev.width;
+	}
+
+	if(pipe->dst_y < 0 || pipe->dst_y > pipe->mdp->mdp_dev.height) {
+		printk(KERN_ERR "%s(%d) Incorrect parameter dsty=%d", __func__, __LINE__, pipe->dst_y);
+		pipe->dst_y = pipe->mdp->mdp_dev.height;
+	}
+
+	if(pipe->dst_w + pipe->dst_x > pipe->mdp->mdp_dev.width) {
+		dst_neww = pipe->mdp->mdp_dev.width - pipe->dst_x;
+		printk(KERN_ERR "%s(%d) Incorrect parameter dstx=%d dstw=%d found, change new dstw=%d", __func__, __LINE__,
+			pipe->dst_x, pipe->dst_w, dst_neww);
+		pipe->dst_w = dst_neww;
+	}
+
+	if(pipe->dst_h + pipe->dst_y > pipe->mdp->mdp_dev.height) {
+		dst_newh = pipe->mdp->mdp_dev.height - pipe->dst_y;
+		printk(KERN_ERR "%s(%d) Incorrect parameter dsty=%d dsth=%d found, change new dsth=%d", __func__, __LINE__,
+			pipe->dst_y, pipe->dst_h, dst_newh);
+		pipe->dst_h = dst_newh;
+	}
+}
 
 void mdp4_overlay_dmap_cfg(struct mdp4_overlay_pipe *pipe, int lcdc)
 {
@@ -285,6 +324,8 @@ void mdp4_overlay_rgb_setup(struct mdp4_overlay_pipe *pipe)
 	rgb_base = MDP4_RGB_BASE;
 	rgb_base += (MDP4_RGB_OFF * pipe->pipe_num);
 
+	mdp4_overlay_parameters_check(pipe);
+
 	src_size = ((pipe->src_h << 16) | pipe->src_w);
 	src_xy = ((pipe->src_y << 16) | pipe->src_x);
 	dst_size = ((pipe->dst_h << 16) | pipe->dst_w);
@@ -341,6 +382,8 @@ void mdp4_overlay_vg_setup(struct mdp4_overlay_pipe *pipe)
 
 	vg_base = MDP4_VIDEO_BASE;
 	vg_base += (MDP4_VIDEO_OFF * pipe->pipe_num);
+
+	mdp4_overlay_parameters_check(pipe);
 
 	frame_size = ((pipe->src_height << 16) | pipe->src_width);
 	src_size = ((pipe->src_h << 16) | pipe->src_w);
@@ -1174,6 +1217,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 	pipe->dst_y = req->dst_rect.y & 0x07ff;
 	pipe->dst_x = req->dst_rect.x & 0x07ff;
 
+	mdp4_overlay_parameters_check(pipe);
+
 	if (req->flags & MDP_FLIP_LR)
 		pipe->op_mode |= MDP4_OP_FLIP_LR;
 
@@ -1226,7 +1271,6 @@ static int get_img(struct msmfb_data *img, struct fb_info *info,
 }
 int mdp4_overlay_get(struct mdp_device *mdp_dev, struct fb_info *info, struct mdp_overlay *req)
 {
-	//struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
 	struct mdp4_overlay_pipe *pipe;
 
 	pipe = mdp4_overlay_ndx2pipe(req->id);
@@ -1240,7 +1284,6 @@ int mdp4_overlay_get(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 
 int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct mdp_overlay *req)
 {
-	//struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
 	int ret, mixer;
 	struct mdp4_overlay_pipe *pipe;
@@ -1248,14 +1291,9 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	unsigned long irq_flags = 0;
 #endif
-	//if (mfd == NULL)
-	//	return -ENODEV;
 
 	if (req->src.format == MDP_FB_FORMAT)
 		req->src.format = MDP_RGB_565;//mfd->fb_imgType;
-
-	//if (mutex_lock_interruptible(&mdp->ov_mutex))
-	//	return -EINTR;
 
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	if (mdp->mdp_dev.overrides & MSM_MDP_RGB_PANEL_SELE_REFRESH) {
@@ -1274,7 +1312,6 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 
 	ret = mdp4_overlay_req2pipe(req, mixer, &pipe);
 	if (ret < 0) {
-//		mutex_unlock(&mdp->ov_mutex);
 		return ret;
 	}
 
@@ -1286,7 +1323,7 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 
 	if(req->user_data[OVERLAY_UPDATE_SCREEN] == OVERLAY_UPDATE_SCREEN_EN
 		&& pipe->srcp0_addr) {
-
+		clk_enable(mdp->clk);
 		if (pipe->pipe_type == OVERLAY_TYPE_VG)
 			mdp4_overlay_vg_setup(pipe);	/* video/graphic pipe */
 		else
@@ -1300,6 +1337,7 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 		lcdc = mdp_readl(mdp, 0xc0000);
 		if (lcdc) /* LCDC mode */
 			mdp4_overlay_reg_flush(pipe, 1);
+		clk_disable(mdp->clk);
 	}
 
 //	mutex_unlock(&mdp->ov_mutex);
@@ -1309,23 +1347,18 @@ int mdp4_overlay_set(struct mdp_device *mdp_dev, struct fb_info *info, struct md
 
 int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx)
 {
-//	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
 	struct mdp4_overlay_pipe *pipe;
 	int lcdc;
-//	if (mfd == NULL)
-//		return -ENODEV;
 
-//	if (mutex_lock_interruptible(&mdp->ov_mutex))
-//		return -EINTR;
 	pipe = mdp4_overlay_ndx2pipe(ndx);
 
 	if (pipe == NULL) {
-//		mutex_unlock(&mdp->ov_mutex);
 		return -ENODEV;
 	}
 
 	pipe->mdp = mdp;
+	clk_enable(mdp->clk);
 
 	lcdc = mdp_readl(mdp, 0xc0000);
 
@@ -1338,13 +1371,14 @@ int mdp4_overlay_unset(struct mdp_device *mdp_dev, struct fb_info *info, int ndx
 #ifdef CONFIG_PANEL_SELF_REFRESH
 	if (mdp->mdp_dev.overrides & MSM_MDP_RGB_PANEL_SELE_REFRESH) {
 		mutex_lock(&panel_icm->icm_lock);
-		panel_icm->icm_doable = true;
+		if(panel_icm->icm_suspend == false)
+			panel_icm->icm_doable = true;
 		mutex_unlock(&panel_icm->icm_lock);
 	}
 #endif
 
-//	mutex_unlock(&mdp->ov_mutex);
 
+	clk_disable(mdp->clk);
 	return 0;
 }
 
@@ -1413,13 +1447,9 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	}
 #endif
 
-//	if (mutex_lock_interruptible(&mdp->ov_mutex))
-//		return -EINTR;
-
 	img = &req->data;
 	get_img(img, info, &start, &len, &p_src_file);
 	if (len == 0) {
-//		mutex_unlock(&mdp->ov_mutex);
 		printk(KERN_ERR "mdp_overlay_play: could not retrieve"
 				       " image from memory\n");
 		return -1;
@@ -1430,6 +1460,9 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	pipe->srcp0_addr = addr;
 	pipe->srcp0_ystride = pipe->src_width * pipe->bpp;
 	pipe->mdp = mdp;
+
+	clk_set_rate(mdp->ebi1_clk, 153000000);
+	clk_enable(mdp->clk);
 
 	if (pipe->fetch_plane == OVERLAY_PLANE_PSEUDO_PLANAR) {
 		if (pipe->frame_format == MDP4_FRAME_FORMAT_VIDEO_SUPERTILE) {
@@ -1459,16 +1492,15 @@ int mdp4_overlay_play(struct mdp_device *mdp_dev, struct fb_info *info, struct m
 	if (lcdc) { /* LCDC mode */
 		mdp4_overlay_reg_flush(pipe, 1);
 		if (pipe->mixer_stage != MDP4_MIXER_STAGE_BASE) { /* done */
-//			mutex_unlock(&mdp->ov_mutex);
+			clk_disable(mdp->clk);
+			mod_timer(&mdp->standby_timer,
+				jiffies + msecs_to_jiffies(1000));
 			return 0;
 		}
 	}
-/* FB pan update will kickoff overlay, bo need to kick here */
-#if 0
-	else /* MDDI mode */
-		mdp4_mddi_overlay_kickoff(mdp, pipe);
-#endif
-//	mutex_unlock(&mdp->ov_mutex);
+	clk_disable(mdp->clk);
+	mod_timer(&mdp->standby_timer,
+		jiffies + msecs_to_jiffies(1000));
 
 	return 0;
 }

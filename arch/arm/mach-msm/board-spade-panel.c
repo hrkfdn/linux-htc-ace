@@ -28,10 +28,12 @@
 #include <mach/msm_fb.h>
 #include <mach/msm_iomap.h>
 #include <mach/atmega_microp.h>
+#include <mach/panel_id.h>
 
 #include "board-spade.h"
 #include "devices.h"
 #include "proc_comm.h"
+#include "../../../drivers/video/msm/mdp_hw.h"
 
 #define DEBUG_LCM
 
@@ -48,7 +50,7 @@ enum {
 	PANEL_SHARP,
 	PANEL_UNKNOW
 };
-
+static int color_enhancement = 0;
 int qspi_send_16bit(unsigned char id, unsigned data);
 int qspi_send_9bit(struct spi_msg *msg);
 
@@ -178,7 +180,27 @@ static void spade_auo_panel_power(bool on_off)
 				ARRAY_SIZE(display_off_gpio_table));
 	}
 }
+struct mdp_reg spade_mdp_init_color[] = {
+	{0x93400, 0x0222, 0x0},
+	{0x93404, 0xFFE4, 0x0},
+	{0x93408, 0xFFFD, 0x0},
+	{0x9340C, 0xFFF1, 0x0},
+	{0x93410, 0x0212, 0x0},
+	{0x93414, 0xFFF9, 0x0},
+	{0x93418, 0xFFF1, 0x0},
+	{0x9341C, 0xFFE6, 0x0},
+	{0x93420, 0x022D, 0x0},
+};
 
+void spade_mdp_color_enhancement(struct mdp_device *mdp_dev)
+{
+	struct mdp_info *mdp = container_of(mdp_dev, struct mdp_info, mdp_dev);
+	mdp->write_regs(mdp, spade_mdp_init_color, ARRAY_SIZE(spade_mdp_init_color));
+}
+
+static struct msm_mdp_platform_data mdp_pdata = {
+        .color_format = MSM_MDP_OUT_IF_FMT_RGB888,
+};
 struct lcm_cmd {
         uint8_t		cmd;
         uint8_t		data;
@@ -382,6 +404,10 @@ static int spade_auo_panel_uninit(struct msm_lcdc_panel_ops *ops)
 static int spade_auo_panel_unblank(struct msm_lcdc_panel_ops *ops)
 {
 	LCMDBG("\n");
+	if (color_enhancement == 0) {
+		spade_mdp_color_enhancement(mdp_pdata.mdp_dev);
+		color_enhancement = 1;
+	}
 	atomic_set(&lcm_init_done, 1);
 	spade_adjust_backlight(last_val);
 
@@ -523,6 +549,10 @@ static int spade_sharp_panel_uninit(struct msm_lcdc_panel_ops *ops)
 static int spade_sharp_panel_unblank(struct msm_lcdc_panel_ops *ops)
 {
 	LCMDBG("\n");
+	if (color_enhancement == 0) {
+		spade_mdp_color_enhancement(mdp_pdata.mdp_dev);
+		color_enhancement = 1;
+	}
 	atomic_set(&lcm_init_done, 1);
 	spade_adjust_backlight(last_val);
 
@@ -599,14 +629,12 @@ static struct platform_device spade_lcdc_device = {
 	},
 };
 
-static struct msm_mdp_platform_data mdp_pdata = {
-        .color_format = MSM_MDP_OUT_IF_FMT_RGB888,
-};
 
 /*----------------------------------------------------------------------------*/
 
 static int spade_adjust_backlight(enum led_brightness val)
 {
+	uint32_t def_bl;
         uint8_t data[4] = {     /* PWM setting of microp, see p.8 */
                 0x05,           /* Fading time; suggested: 5/10/15/20/25 */
                 val,            /* Duty Cycle */
@@ -615,18 +643,23 @@ static int spade_adjust_backlight(enum led_brightness val)
                 };
 	uint8_t shrink_br;
 
+
+	if (panel_type == PANEL_ID_SPADE_SHA_N90)
+		def_bl = 101;
+	else
+		def_bl = 91;
+
         mutex_lock(&panel_lock);
         if (val == 0)
                 shrink_br = 0;
         else if (val <= 30)
                 shrink_br = 7;
         else if ((val > 30) && (val <= 143))
-                shrink_br = (91 - 7) * (val - 30) / (143 - 30) + 7;
+                shrink_br = (def_bl - 7) * (val - 30) / (143 - 30) + 7;
         else
-                shrink_br = (217 - 91) * (val - 143) / (255 - 143) + 91;
+                shrink_br = (217 - def_bl) * (val - 143) / (255 - 143) + def_bl;
         data[1] = shrink_br;
 
-        LCMDBG("(%d), shrink_br=%d\n", val, shrink_br);
         microp_i2c_write(0x25, data, sizeof(data));
         last_val = shrink_br ? shrink_br: last_val;
         mutex_unlock(&panel_lock);
@@ -683,11 +716,13 @@ int spade_panel_sleep_in(void)
 {
 	int ret;
 
-	LCMDBG(", screen=%s\n", screen_on ? "on" : "off");
-	if (screen_on)
-		return 0;
-
 	mutex_lock(&panel_lock);
+	LCMDBG(", screen=%s\n", screen_on ? "on" : "off");
+	if (screen_on) {
+		mutex_unlock(&panel_lock);
+		return 0;
+	}
+
 	switch (panel_type) {
 		case PANEL_AUO:
 			spade_auo_panel_power(1);
@@ -696,6 +731,7 @@ int spade_panel_sleep_in(void)
 			ret = 0;
 			break;
 		case PANEL_SHARP:
+		case PANEL_ID_SPADE_SHA_N90:
 			spade_sharp_panel_power(1);
 			lcm_sharp_write_seq(sharp_uninit_seq,
 				ARRAY_SIZE(sharp_uninit_seq));
@@ -734,6 +770,7 @@ int __init spade_init_panel(void)
 
 		break;
 	case PANEL_SHARP:
+	case PANEL_ID_SPADE_SHA_N90:
 		spade_lcdc_platform_data.timing = &spade_sharp_timing;
 		spade_lcdc_platform_data.panel_ops = &spade_sharp_panel_ops;
 		break;

@@ -20,6 +20,7 @@
 #include <linux/device.h>
 
 struct mddi_info;
+struct mdp_device;
 
 /* output interface format */
 #define MSM_MDP_OUT_IF_FMT_RGB565 0
@@ -122,6 +123,12 @@ enum {
 	MDP_DMA_S,
 };
 
+struct mdp_reg {
+    uint32_t reg;
+    uint32_t val;
+    uint32_t mask;
+};
+
 struct msm_mdp_platform_data {
 	/* from the enum above */
 	int dma_channel;
@@ -131,6 +138,7 @@ struct msm_mdp_platform_data {
 	unsigned sync_config;
 	unsigned sync_thresh;
 	unsigned sync_start_pos;
+	struct mdp_device *mdp_dev;
 };
 
 struct msm_mddi_client_data {

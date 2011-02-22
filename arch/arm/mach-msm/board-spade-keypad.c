@@ -35,19 +35,14 @@ static struct gpio_event_direct_entry spade_keypad_input_map[] = {
 	{
 		.gpio = SPADE_GPIO_KEYPAD_POWER_KEY,
 		.code = KEY_POWER,
-		.wakeup = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(SPADE_VOL_UP),
 		.code = KEY_VOLUMEUP,
-		.wakeup = 1,
-		.check_call_status = 1,
 	},
 	{
 		.gpio = PM8058_GPIO_PM_TO_SYS(SPADE_VOL_DN),
 		.code = KEY_VOLUMEDOWN,
-		.wakeup = 1,
-		.check_call_status = 1,
 	},
 };
 
@@ -74,13 +69,6 @@ static struct gpio_event_info *spade_keypad_info[] = {
 	&spade_keypad_input_info.info,
 };
 
-static int spade_pmic8058_keypad_power(
-			const struct gpio_event_platform_data *pdata, bool on)
-{
-	/* if we need it... */
-	return 0;
-}
-
 static struct gpio_event_platform_data spade_keypad_data = {
 	.names = {
 		"spade-keypad",
@@ -88,7 +76,6 @@ static struct gpio_event_platform_data spade_keypad_data = {
 	},
 	.info = spade_keypad_info,
 	.info_count = ARRAY_SIZE(spade_keypad_info),
-	.power = spade_pmic8058_keypad_power,
 };
 
 static struct platform_device spade_keypad_input_device = {

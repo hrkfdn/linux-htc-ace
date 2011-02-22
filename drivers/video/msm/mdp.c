@@ -747,6 +747,39 @@ int register_mdp_client(struct class_interface *cint)
 	return class_interface_register(cint);
 }
 
+
+static int
+mdp_write_reg_mask(struct mdp_info *mdp, uint32_t reg, uint32_t val, uint32_t mask)
+{
+	uint32_t oldval, newval;
+
+	oldval = mdp_readl(mdp, reg);
+
+	oldval &= (~mask);
+	val &= mask;
+	newval = oldval | val;
+
+	mdp_writel(mdp, newval, reg);
+
+	return 0;
+
+}
+
+static int
+mdp_write_regs(struct mdp_info *mdp, const struct mdp_reg *reglist, int size)
+{
+	const struct mdp_reg *reg_seq = reglist;
+	int i;
+
+	for (i = 0; i < size; i++) {
+		if (reg_seq[i].mask == 0x0)
+			mdp_writel(mdp, reg_seq[i].val, reg_seq[i].reg);
+		else
+			mdp_write_reg_mask(mdp, reg_seq[i].reg, reg_seq[i].val, reg_seq[i].mask);
+	}
+
+	return 0;
+}
 int mdp_probe(struct platform_device *pdev)
 {
 	struct resource *resource;
@@ -798,11 +831,15 @@ int mdp_probe(struct platform_device *pdev)
 
 	mdp->enable_irq = enable_mdp_irq;
 	mdp->disable_irq = disable_mdp_irq;
+	mdp->write_regs = mdp_write_regs;
 
 	if (pdata == NULL || pdata->overrides == 0)
 		mdp->mdp_dev.overrides = 0;
 	else if(pdata->overrides)
 		mdp->mdp_dev.overrides = pdata->overrides;
+
+	if (pdata != NULL)
+		pdata->mdp_dev = &mdp->mdp_dev;
 
 	if (pdata == NULL || pdata->color_format == 0)
 		mdp->mdp_dev.color_format = MSM_MDP_OUT_IF_FMT_RGB565;

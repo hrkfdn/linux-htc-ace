@@ -27,7 +27,7 @@
 #include <linux/a1026.h>
 
 #define DEBUG			(0)
-#define ENABLE_DIAG_IOCTLS	(1)
+#define ENABLE_DIAG_IOCTLS	(0)
 
 static struct i2c_client *this_client;
 static struct a1026_platform_data *pdata;
@@ -41,8 +41,6 @@ static int control_a1026_clk;
 static unsigned int a1026_NS_state = A1026_NS_STATE_AUTO;
 static int a1026_current_config = A1026_PATH_SUSPEND;
 static int a1026_param_ID;
-static char *config_data;
-static int a1026_cmds_len;
 
 struct vp_ctxt {
 	unsigned char *data;
@@ -293,31 +291,33 @@ unsigned char phonecall_receiver[] = {
 	0x80,0x17,0x00,0x04, /* SetAlgorithmParmID, 0x0004:Use AGC */
 	0x80,0x18,0x00,0x00, /* SetAlgorithmParm, 0x0000:No */
 	0x80,0x17,0x00,0x00, /* SetAlgorithmParmID, 0x0000:Suppression Strength */
-	0x80,0x18,0x00,0x00, /* SetAlgorithmParm, 0x0000:0dB Max Suppression */
+	0x80,0x18,0x00,0x05, /* SetAlgorithmParm, 0x0005:25dB Max Suppression */
+	0x80,0x17,0x00,0x20, /* SetAlgorithmParmID, 0x0020:Tx PostEq Mode */
+	0x80,0x18,0x00,0x02, /* SetAlgorithmParm, 0x0002:On always */
 	0x80,0x1B,0x00,0x0C, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x0C:(12 dB) */
 	0x80,0x1B,0x01,0x0C, /* SetDigitalInputGain, 0x01:Secondary Mic (Tx), 0x0C:(12 dB) */
-	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
+	0x80,0x15,0x00,0xFA, /* SetDigitalOutputGain, 0x00:Tx, 0xFA:(-6 dB) */
 };
 
 unsigned char phonecall_headset[] = {
 	0x80,0x26,0x00,0x15, /* SelectRouting, 0x0015:Snk,Pri,Snk,Snk - Csp,Zro,Zro (none) */
 	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
 	0x80,0x1B,0x00,0x12, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x12:(18 dB) */
-	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
+	0x80,0x15,0x00,0xF8, /* SetDigitalOutputGain, 0x00:Tx, 0xF8:(-8 dB) */
 };
 
 unsigned char phonecall_speaker[] = {
 	0x80,0x17,0x00,0x02, /* SetAlgorithmParmID, 0x0002:Microphone Configuration */
 	0x80,0x18,0x00,0x02, /* SetAlgorithmParm, 0x0002:1-mic Desktop/Vehicle (DV) */
-	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
+	0x80,0x1C,0x00,0x01, /* VoiceProcessingOn, 0x0001:Yes */
 	0x80,0x17,0x00,0x00, /* SetAlgorithmParmID, 0x0000:Suppression Strength */
-	0x80,0x18,0x00,0x04, /* SetAlgorithmParm, 0x0004:20dB Max Suppression */
+	0x80,0x18,0x00,0x02, /* SetAlgorithmParm, 0x0002 */
 	0x80,0x17,0x00,0x04, /* SetAlgorithmParmID, 0x0004:Use AGC */
 	0x80,0x18,0x00,0x00, /* SetAlgorithmParm, 0x0000:No */
 	0x80,0x17,0x00,0x1A, /* SetAlgorithmParmID, 0x001A:Use ComfortNoise */
 	0x80,0x18,0x00,0x00, /* SetAlgorithmParm, 0x0000:No */
-	0x80,0x1B,0x00,0x0C, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x0C:(12 dB) */
-	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
+	0x80,0x1B,0x00,0x12, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x12:(18 dB) */
+	0x80,0x15,0x00,0xFD, /* SetDigitalOutputGain, 0x00:Tx, 0xFD:(-3 dB) */
 };
 
 unsigned char phonecall_bt[] = {
@@ -327,6 +327,13 @@ unsigned char phonecall_bt[] = {
 	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
 	0x80,0x1B,0x00,0x00, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x00:(0 dB) */
 	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
+};
+
+unsigned char phonecall_tty[] = {
+	0x80,0x26,0x00,0x15, /* SelectRouting, 0x0015:Snk,Pri,Snk,Snk - Csp,Zro,Zro (none) */
+	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
+	0x80,0x1B,0x00,0x00, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x00:(0 dB) */
+	0x80,0x15,0x00,0xFB, /* SetDigitalOutputGain, 0x00:Tx, 0xFB:(-5 dB) */
 };
 
 unsigned char INT_MIC_recording_receiver[] = {
@@ -363,15 +370,15 @@ unsigned char BACK_MIC_recording[] = {
 	0x80,0x17,0x00,0x00, /* SetAlgorithmParmID, 0x0000:Suppression Strength */
 	0x80,0x18,0x00,0x00, /* SetAlgorithmParm, 0x0000:No Suppression */
 	0x80,0x1B,0x00,0x12, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x12:(18 dB) */
-	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
+	0x80,0x15,0x00,0x06, /* SetDigitalOutputGain, 0x00:Tx, 0x06:(6 dB) */
 };
 
 unsigned char vr_no_ns_receiver[] = {
 	0x80,0x17,0x00,0x02, /* SetAlgorithmParmID, 0x0002:Microphone Configuration */
 	0x80,0x18,0x00,0x00, /* SetAlgorithmParm, 0x0000:2-mic Close Talk (CT) */
 	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
-	0x80,0x1B,0x00,0x00, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x00:(0 dB) */
-	0x80,0x1B,0x01,0x00, /* SetDigitalInputGain, 0x01:Secondary Mic (Tx), 0x00:(0 dB) */
+	0x80,0x1B,0x00,0x0C, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x0C:(12 dB) */
+	0x80,0x1B,0x01,0x0C, /* SetDigitalInputGain, 0x01:Secondary Mic (Tx), 0x09:(12 dB) */
 	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
 };
 
@@ -380,7 +387,7 @@ unsigned char vr_no_ns_headset[] = {
 	0x80,0x18,0x00,0x03, /* SetAlgorithmParm, 0x0003:1M-DG (1-mic digital input) */
 	0x80,0x26,0x00,0x15, /* SelectRouting, 0x0015:Snk,Pri,Snk,Snk - Csp,Zro,Zro (none) */
 	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
-	0x80,0x1B,0x00,0x00, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x00:(0 dB) */
+	0x80,0x1B,0x00,0x12, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x12:(18 dB) */
 	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
 };
 
@@ -388,7 +395,7 @@ unsigned char vr_no_ns_speaker[] = {
 	0x80,0x17,0x00,0x02, /* SetAlgorithmParmID, 0x0002:Microphone Configuration */
 	0x80,0x18,0x00,0x02, /* SetAlgorithmParm, 0x0002:1-mic Desktop/Vehicle (DV) */
 	0x80,0x1C,0x00,0x00, /* VoiceProcessingOn, 0x0000:No */
-	0x80,0x1B,0x00,0x00, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x00:(0 dB) */
+	0x80,0x1B,0x00,0x0C, /* SetDigitalInputGain, 0x00:Primay Mic (Tx), 0x0C:(12 dB) */
 	0x80,0x15,0x00,0x00, /* SetDigitalOutputGain, 0x00:Tx, 0x00:(0 dB) */
 };
 
@@ -534,34 +541,16 @@ int a1026_filter_vp_cmd(int cmd, int mode)
 
 	return filtered_cmd;
 }
-int build_cmds(char* cmds, int newid)
-{
-	int i = 0;
-	int offset = 0;
-	for ( i = 0; i < a1026_cmds_len; i += 6)
-		if (config_data[i] == newid) {
-			cmds[offset++] = config_data[i + 2];
-			cmds[offset++] = config_data[i + 3];
-			cmds[offset++] = config_data[i + 4];
-			cmds[offset++] = config_data[i + 5];
-		}
-	if (offset > 128)
-	{
-		pr_err("Wrong i2c commands\n");
-		return 0;
-	}
-	return offset;
-}
+
 int a1026_set_config(char newid, int mode)
 {
-	int rc = 0, size = 0;
+	int i = 0, rc = 0, size = 0;
 	int number_of_cmd_sets, rd_retry_cnt;
 	unsigned int sw_reset = 0;
 	unsigned char *i2c_cmds;
 	unsigned char *index = 0;
 	unsigned char ack_buf[A1026_CMD_FIFO_DEPTH * 4];
 	unsigned char rdbuf[4];
-	unsigned char custom_cmds[128] = {0};
 
 	if ((a1026_suspended) && (newid == A1026_PATH_SUSPEND))
 		return rc;
@@ -592,6 +581,11 @@ int a1026_set_config(char newid, int mode)
 		gpio_set_value(pdata->gpio_a1026_micsel, 0);
 		i2c_cmds = phonecall_bt;
 		size = sizeof(phonecall_bt);
+		break;
+	case A1026_PATH_INCALL_TTY:
+		gpio_set_value(pdata->gpio_a1026_micsel, 1);
+		i2c_cmds = phonecall_tty;
+		size = sizeof(phonecall_tty);
 		break;
 	case A1026_PATH_VR_NO_NS_RECEIVER:
 		gpio_set_value(pdata->gpio_a1026_micsel, 0);
@@ -671,29 +665,15 @@ int a1026_set_config(char newid, int mode)
 	}
 
 	a1026_current_config = newid;
-
-	if (a1026_cmds_len > 0 )
-	{
-		int cmd_size = 0;
-		if ((cmd_size = build_cmds(custom_cmds, newid)) > 0 )
-			i2c_cmds = custom_cmds;
-			size = cmd_size;
-			pr_err("use customize command\n");
-	}
-
 	pr_info("%s: change to mode %d\n", __func__, newid);
 
 	pr_info("%s: block write start (size = %d)\n", __func__, size);
-
 #if DEBUG
-	{
-		int i = 0;
-		for (i = 1; i <= size; i++) {
-		pr_info("%x ", *(i2c_cmds + i - 1));
-			if ( !(i % 4))
-				pr_info("\n");
-	        }
-	}
+        for (i = 1; i <= size; i++) {
+                pr_info("%x ", *(i2c_cmds + i - 1));
+                if ( !(i % 4))
+                        pr_info("\n");
+        }
 #endif
 
 	rc = a1026_i2c_write(i2c_cmds, size);
@@ -726,14 +706,11 @@ int a1026_set_config(char newid, int mode)
 	} else {
 		pr_info("%s: CMD ACK block read end\n", __func__);
 #if DEBUG
-	{
-		int i = 0;
 		for (i = 1; i <= size; i++) {
 			pr_info("%x ", ack_buf[i-1]);
 			if ( !(i % 4))
 				pr_info("\n");
 		}
-	}
 #endif
 		index = ack_buf;
 		number_of_cmd_sets = size / 4;
@@ -747,13 +724,10 @@ rd_retry:
 					if (rc < 0)
 						return rc;
 #if DEBUG
-					{
-						int i = 0;
-						for (i = 0; i < sizeof(rdbuf); i++) {
-							pr_info("0x%x\n", rdbuf[i]);
-						}
-						pr_info("-----------------\n");
+					for (i = 0; i < sizeof(rdbuf); i++) {
+						pr_info("0x%x\n", rdbuf[i]);
 					}
+					pr_info("-----------------\n");
 #endif
 					if (rdbuf[0] == 0x00) {
 						msleep(20);
@@ -903,7 +877,6 @@ a1026_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 {
 	void __user *argp = (void __user *)arg;
 	struct a1026img img;
-	struct A1026_config_data cfg;
 	int rc = 0;
 #if ENABLE_DIAG_IOCTLS
 	char msg[4];
@@ -939,33 +912,6 @@ a1026_ioctl(struct inode *inode, struct file *file, unsigned int cmd,
 		if (!a1026_suspended)
 			a1026_set_config(a1026_current_config,
 					A1026_CONFIG_VP);
-		break;
-	case A1026_SET_PARAM:
-		a1026_cmds_len = 0;
-		cfg.cmd_data = 0;
-		if (copy_from_user(&cfg, argp, sizeof(cfg))) {
-			pr_err("%s: copy from user failed.\n", __func__);
-			return -EFAULT;
-		}
-
-		if (cfg.data_len <= 0) {
-				pr_err("%s: invalid data length %d\n", __func__,  cfg.data_len);
-				return -EINVAL;
-		}
-
-		config_data = kmalloc(cfg.data_len, GFP_KERNEL);
-		if (!config_data) {
-			pr_err("%s: out of memory\n", __func__);
-			return -ENOMEM;
-		}
-		if (copy_from_user(config_data, cfg.cmd_data, cfg.data_len)) {
-			pr_err("%s: copy data from user failed.\n", __func__);
-			kfree(config_data);
-			return -EFAULT;
-		}
-		a1026_cmds_len = cfg.data_len;
-		pr_info("%s: update a1026 i2c commands success. \n", __func__);
-		rc = 0;
 		break;
 #if ENABLE_DIAG_IOCTLS
 	case A1026_SET_MIC_ONOFF:

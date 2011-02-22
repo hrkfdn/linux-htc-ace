@@ -111,7 +111,7 @@ static int icm_thread(void *data)
 				clk_disable(lcdc->pclk);
 				clk_disable(lcdc->mdp_clk);
 				panel_icm->clock_enabled = false;
-				pr_info("EnterICM: enter ICM MODE done!!!\n");
+				printk(KERN_DEBUG "EnterICM: enter ICM MODE done!!!\n");
 			}
 		} else {/* get update event, no timeout */
 			ICM_DBG("Leave ICM: icm_mode=%d icm_doable=%d \n", panel_icm->icm_mode, panel_icm->icm_doable);
@@ -126,7 +126,7 @@ static int icm_thread(void *data)
 					panel_ops->refresh_disable(panel_ops);
 
 				panel_icm->icm_mode = false;
-				pr_info("LeaveICM: leave ICM MODE done !!!\n");
+				printk(KERN_DEBUG "LeaveICM: leave ICM MODE done !!!\n");
 			}
 			spin_lock_irqsave(&panel_icm->lock, irq_flags);
 			panel_icm->panel_update = 0;
@@ -176,6 +176,7 @@ static int icm_init(struct mdp_lcdc_info *lcdc)
 	panel_icm->clock_enabled = true;
 	panel_icm->lcdc = lcdc;
 	panel_icm->force_leave = icm_force_leave;
+	panel_icm->icm_suspend = false;
 	mutex_init(&panel_icm->icm_lock);
 	th_display = kthread_run(icm_thread, lcdc, "panel-enterIdle");
 	if (IS_ERR(th_display)) {
@@ -244,6 +245,7 @@ static int lcdc_suspend(struct msm_panel_data *fb_panel)
 	if (lcdc->mdp->mdp_dev.overrides & MSM_MDP_RGB_PANEL_SELE_REFRESH) {
 		mutex_lock(&panel_icm->icm_lock);
 		panel_icm->icm_doable = false;
+		panel_icm->icm_suspend = true;
 		pr_info("[ICM %s]: icm mode=%d, clock_enabled=%d\n", __func__, panel_icm->icm_mode, panel_icm->clock_enabled);
 		if (panel_icm->icm_mode == true && panel_icm->clock_enabled == false) {
 			if (panel_ops->refresh_disable)
@@ -300,6 +302,7 @@ static int lcdc_resume(struct msm_panel_data *fb_panel)
 		mutex_lock(&panel_icm->icm_lock);
 		panel_icm->icm_doable = true;
 		panel_icm->clock_enabled = true;
+		panel_icm->icm_suspend = false;
 		mutex_unlock(&panel_icm->icm_lock);
 	}
 #endif

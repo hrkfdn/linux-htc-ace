@@ -31,7 +31,6 @@
 #include <linux/isl29028.h>
 #include <linux/atmel_qt602240.h>
 #include <linux/synaptics_i2c_rmi.h>
-#include <linux/elan_ktf2k.h>
 #include <linux/leds-pm8058.h>
 #include <linux/proc_fs.h>
 #include <linux/ds2746_battery.h>
@@ -435,6 +434,20 @@ static int isl29028_power(int pwr_device, uint8_t enable)
 	return 0;
 }
 
+
+static uint8_t isl29028_mapping_table[] = {0x0, 0x3, 0x6, 0x9, 0xC,
+			0xF, 0x12, 0x15, 0x18, 0x1B,
+			0x1E, 0x21, 0x24, 0x27, 0x2A,
+			0x2D, 0x30, 0x33, 0x36, 0x39,
+			0x3C, 0x3F, 0x43, 0x47, 0x4B,
+			0x4F, 0x53, 0x57, 0x5B, 0x5F,
+			0x63, 0x67, 0x6B, 0x70, 0x75,
+			0x7A, 0x7F, 0x84, 0x89, 0x8E,
+			0x93, 0x98, 0x9D, 0xA2, 0xA8,
+			0xAE, 0xB4, 0xBA, 0xC0, 0xC6,
+			0xCC, 0xD3, 0xDA, 0xE1, 0xE8,
+			0xEF, 0xF6, 0xFF};
+
 static struct isl29028_platform_data isl29028_pdata = {
 	.intr = SPADE_GPIO_PROXIMITY_INT_N,
 	.levels = { 7, 59, 137, 1171, 1559, 1817,
@@ -444,17 +457,23 @@ static struct isl29028_platform_data isl29028_pdata = {
 	.lt = 0x45,
 	.ht = 0x55,
 	.debounce = 1,
+	.mapping_table = isl29028_mapping_table,
+	.mapping_size = ARRAY_SIZE(isl29028_mapping_table),
 };
 
 static int spade_ts_atmel_power(int on)
 {
-	pr_info("%s():\n", __func__);
-	gpio_set_value(PM8058_GPIO_PM_TO_SYS(SPADE_TP_RSTz), 0);
-	msleep(5);
-	gpio_set_value(SPADE_GPIO_TP_3V3_ENABLE, 1);
-	msleep(5);
-	gpio_set_value(PM8058_GPIO_PM_TO_SYS(SPADE_TP_RSTz), 1);
-	msleep(40);
+	pr_info("%s: %d\n", __func__, on);
+	if (on == 1) {
+		gpio_set_value(SPADE_GPIO_TP_3V3_ENABLE, 1);
+		msleep(5);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(SPADE_TP_RSTz), 1);
+	} else if (on == 2) {
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(SPADE_TP_RSTz), 0);
+		msleep(5);
+		gpio_set_value(PM8058_GPIO_PM_TO_SYS(SPADE_TP_RSTz), 1);
+		msleep(40);
+	}
 	return 0;
 }
 
@@ -473,8 +492,8 @@ struct atmel_i2c_platform_data spade_ts_atmel_data[] = {
 		.power = spade_ts_atmel_power,
 		.config_T6 = {0, 0, 0, 0, 0, 0},
 		.config_T7 = {50, 15, 25},
-		.config_T8 = {8, 0, 10, 10, 0, 0, 10, 30, 4, 170},
-		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 42, 3, 7, 10, 10, 5, 15, 4, 10, 20, 0, 0, 0, 0, 0, 0, 2, 6, 6, 162, 40, 168, 70, 20, 4},
+		.config_T8 = {8, 0, 10, 10, 0, 0, 10, 32, 4, 170},
+		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 35, 3, 7, 10, 10, 5, 15, 4, 10, 20, 0, 0, 0, 0, 0, 0, 2, 6, 6, 162, 40, 168, 70, 20, 4},
 		.config_T15 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T19 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T20 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -484,8 +503,8 @@ struct atmel_i2c_platform_data spade_ts_atmel_data[] = {
 		.config_T25 = {3, 0, 200, 50, 64, 31, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T27 = {0, 0, 0, 0, 0, 0, 0},
 		.config_T28 = {0, 0, 3, 4, 8, 60},
-		.object_crc = {0x29, 0xFB, 0xB1},
-		.cable_config = {40, 20, 8, 16},
+		.object_crc = {0xCD, 0xD7, 0xF6 },
+		.cable_config = {35, 20, 8, 16},
 		.noise_config = {45, 2, 40},
 		.GCAF_level = {20, 24, 28, 40, 63},
 	},
@@ -507,7 +526,6 @@ struct atmel_i2c_platform_data spade_ts_atmel_data[] = {
 		.config_T9 = {139, 0, 0, 19, 11, 0, 16, 30, 3, 7, 10, 10, 5, 15, 4, 10, 20, 0, 0, 0, 0, 0, 8, 2, 6, 6, 162, 40, 168, 70, 20},
 		.config_T15 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T19 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-/*		.config_T20 = {7, 0, 0, 0, 0, 0, 0, 40, 20, 4, 15, 0}, */
 		.config_T22 = {15, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 7, 18, 255, 255, 0},
 		.config_T23 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 		.config_T24 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -543,6 +561,7 @@ static struct synaptics_i2c_rmi_platform_data spade_ts_3k_data[] = {
 		.abs_y_max = 1900,
 		.sensitivity_adjust = 0,
 		.finger_support = 4,
+		.display_height = 800,
 	},
 	{
 		.version = 0x0100,
@@ -554,34 +573,8 @@ static struct synaptics_i2c_rmi_platform_data spade_ts_3k_data[] = {
 		.abs_y_max = 1900,
 		.sensitivity_adjust = 0,
 		.finger_support = 4,
+		.display_height = 800,
 	}
-};
-
-static int spade_elan_ktf2k_ts_power(int on)
-{
-	pr_info("%s: power %d\n", __func__, on);
-
-	if (on) {
-		gpio_set_value(SPADE_GPIO_TP_3V3_ENABLE, 1);
-		msleep(300);
-	} else {
-		gpio_set_value(SPADE_GPIO_TP_3V3_ENABLE, 0);
-		udelay(11);
-	}
-
-	return 0;
-}
-
-struct elan_ktf2k_i2c_platform_data spade_ts_elan_ktf2k_data[] = {
-	{
-		.version = 0x0021,
-		.abs_x_min = 5,
-		.abs_x_max = 635,
-		.abs_y_min = 10,
-		.abs_y_max = 1100,
-		.intr_gpio = SPADE_GPIO_TP_ATT_N,
-		.power = spade_elan_ktf2k_ts_power,
-	},
 };
 
 static struct i2c_board_info i2c_devices[] = {
@@ -594,11 +587,6 @@ static struct i2c_board_info i2c_devices[] = {
 		I2C_BOARD_INFO(SYNAPTICS_3K_NAME, 0x20),
 		.platform_data = &spade_ts_3k_data,
 		.irq = MSM_GPIO_TO_INT(SPADE_GPIO_TP_ATT_N)
-	},
-	{
-		I2C_BOARD_INFO(ELAN_KTF2K_NAME, 0x15),
-		.platform_data = &spade_ts_elan_ktf2k_data,
-		.irq = MSM_GPIO_TO_INT(SPADE_GPIO_TP_ATT_N),
 	},
 	{
 		I2C_BOARD_INFO(MICROP_I2C_NAME, 0xCC >> 1),
@@ -2034,14 +2022,6 @@ static ssize_t spade_virtual_keys_show(struct kobject *kobj,
 		"\n");
 }
 
-static struct kobj_attribute spade_elan_virtual_keys_attr = {
-	.attr = {
-		.name = "virtualkeys.elan-touchscreen",
-		.mode = S_IRUGO,
-	},
-	.show = &spade_virtual_keys_show,
-};
-
 static struct kobj_attribute spade_synaptics_virtual_keys_attr = {
 	.attr = {
 		.name = "virtualkeys.synaptics-rmi-touchscreen",
@@ -2059,7 +2039,6 @@ static struct kobj_attribute spade_virtual_keys_attr = {
 };
 
 static struct attribute *spade_properties_attrs[] = {
-	&spade_elan_virtual_keys_attr.attr,
 	&spade_synaptics_virtual_keys_attr.attr,
 	&spade_virtual_keys_attr.attr,
 	NULL

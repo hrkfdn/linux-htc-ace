@@ -3800,13 +3800,20 @@ dhdsdio_hostmail(dhd_bus_t *bus)
 	return intstatus;
 }
 
-#define MMC_RECOVER
-
-
 #ifdef MMC_RECOVER
+static uint32 mmc_recover_saved_jiffies = 0;
 static uint8 prev_tx_seq = 0;
 static uint8 prev_tx_max = 0;
 static int max_equal_count = 0;
+static int start_mmc_recover = 0;
+void dhdsdio_set_mmc_recover(int set)
+{
+	myprintf("set mmc recover %d\n", set);
+	if (set)
+		start_mmc_recover = 1;
+	else
+		start_mmc_recover = 0;
+}
 #endif
 
 static int dhdsdio_regfail = 0;
@@ -3969,22 +3976,36 @@ clkwait:
 	}
 
 #ifdef MMC_RECOVER
-	if ((bus->tx_max == bus->tx_seq)&&(bus->tx_max == prev_tx_max)&&(bus->tx_seq == prev_tx_seq)) {
-		max_equal_count++;
-		myprintf("bad case, count %d\n", max_equal_count);
-		myprintf("framecnt = %d\n", framecnt);
-	} else {
-		max_equal_count = 0;
-	}
+	if (start_mmc_recover) {
+		if ((bus->tx_max == bus->tx_seq)&&(bus->tx_max == prev_tx_max)&&(bus->tx_seq == prev_tx_seq)) {
+			/* check point */
+			if (mmc_recover_saved_jiffies == 0)
+				mmc_recover_saved_jiffies = jiffies;
+			else {
+				if (jiffies > (mmc_recover_saved_jiffies + HZ)) {
+					max_equal_count++;
+					mmc_recover_saved_jiffies = jiffies;
+					myprintf("bad count %d\n", max_equal_count);
+				} else if (jiffies < mmc_recover_saved_jiffies){
+					max_equal_count = 0;
+					mmc_recover_saved_jiffies = 0;
+				}
+			}
+		} else {
+			max_equal_count = 0;
+			mmc_recover_saved_jiffies = 0;
+		}
 
-	prev_tx_max = bus->tx_max;
-	prev_tx_seq = bus->tx_seq;
+		prev_tx_max = bus->tx_max;
+		prev_tx_seq = bus->tx_seq;
 
-	if (max_equal_count >= 3) {
-		bus->tx_seq = (bus->tx_seq + 1) % SDPCM_SEQUENCE_WRAP;
-		//bus->tx_max = bus->tx_seq + 2;
-		max_equal_count = 0;
-		myprintf("reset count\n");
+		if (max_equal_count > 1) {
+			bus->tx_seq = (bus->tx_seq + 1) % SDPCM_SEQUENCE_WRAP;
+			//bus->tx_max = bus->tx_seq + 2;
+			myprintf("reset count %d\n", max_equal_count);
+			max_equal_count = 0;
+			mmc_recover_saved_jiffies = 0;
+		}
 	}
 #endif
 

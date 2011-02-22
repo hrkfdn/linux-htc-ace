@@ -399,59 +399,37 @@ void vfe_stop(void)
 {
 	pr_info("vfe_stop()  enter\n");
 
-pr_info("vfe_stop()  check point 01  :  before atomic_set" \
-		"(&(vfe31_ctrl->vstate), 0)\n");
 	atomic_set(&(vfe31_ctrl->vstate), 0);
-pr_info("vfe_stop()  check point 02  :  before atomic_set" \
-		"(&(vfe31_ctrl->stop_ack_pending), 1)\n");
 	atomic_set(&(vfe31_ctrl->stop_ack_pending), 1);
 
 	/* in either continuous or snapshot mode, stop command can be issued
 	 * at any time. stop camif immediately. */
-pr_info("vfe_stop()  check point 03  :  before msm_io_w_mb" \
-		"(CAMIF_COMMAND_STOP_IMMEDIATELY, ... VFE_CAMIF_COMMAND\n");
 	msm_io_w_mb(CAMIF_COMMAND_STOP_IMMEDIATELY,
 		vfe31_ctrl->vfebase + VFE_CAMIF_COMMAND);
 
-pr_info("vfe_stop()  check point 04  :  before msm_io_w" \
-		"(VFE_DISABLE_ALL_IRQS, ... VFE_IRQ_MASK_0\n");
 	/* disable all interrupts.  */
 	msm_io_w(VFE_DISABLE_ALL_IRQS,
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_0);
-pr_info("vfe_stop()  check point 05  :  before msm_io_w" \
-		"(VFE_DISABLE_ALL_IRQS, ... VFE_IRQ_MASK_1\n");
 	msm_io_w(VFE_DISABLE_ALL_IRQS,
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_1);
 
-pr_info("vfe_stop()  check point 06  :  before msm_io_w" \
-		"(VFE_CLEAR_ALL_IRQS, ... VFE_IRQ_CLEAR_0\n");
 	/* clear all pending interrupts*/
 	msm_io_w(VFE_CLEAR_ALL_IRQS,
 		vfe31_ctrl->vfebase + VFE_IRQ_CLEAR_0);
-pr_info("vfe_stop()  check point 07  :  before msm_io_w" \
-		"(VFE_CLEAR_ALL_IRQS, ... VFE_IRQ_CLEAR_1\n");
 	msm_io_w(VFE_CLEAR_ALL_IRQS,
 		vfe31_ctrl->vfebase + VFE_IRQ_CLEAR_1);
 	/* Ensure the write order while writing
 	to the command register using the barrier */
-pr_info("vfe_stop()  check point 08  :  before msm_io_w_mb" \
-		"(1, ... VFE_IRQ_CMD\n");
 	msm_io_w_mb(1,
 		vfe31_ctrl->vfebase + VFE_IRQ_CMD);
 
 	/* now enable only halt_irq & reset_irq */
-pr_info("vfe_stop()  check point 09  :  before msm_io_w" \
-		"(0xf0000000, ... VFE_IRQ_MASK_0\n");
 	msm_io_w(0xf0000000,          /* this is for async timer. */
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_0);
-pr_info("vfe_stop()  check point 10  :  before msm_io_w" \
-		"(VFE_IMASK_WHILE_STOPPING_1, ... VFE_IRQ_MASK_1\n");
 	msm_io_w(VFE_IMASK_WHILE_STOPPING_1,
 		vfe31_ctrl->vfebase + VFE_IRQ_MASK_1);
 
 	/* then apply axi halt command. */
-pr_info("vfe_stop()  check point 11  :  before msm_io_w_mb" \
-		"(AXI_HALT, ... VFE_AXI_CMD\n");
 	msm_io_w_mb(AXI_HALT,
 		vfe31_ctrl->vfebase + VFE_AXI_CMD);
 

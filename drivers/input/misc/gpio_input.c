@@ -251,8 +251,7 @@ static int gpio_event_input_request_irqs(struct gpio_input_state *ds)
 				ds->info->keymap[i].gpio, irq);
 			goto err_request_irq_failed;
 		}
-		if (ds->info->keymap[i].wakeup)
-			enable_irq_wake(irq);
+		enable_irq_wake(irq);
 	}
 	return 0;
 
@@ -289,8 +288,7 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 			for (i = 0; i < di->keymap_size; i++) {
 				irq = gpio_to_irq(di->keymap[i].gpio);
 
-				if (di->keymap[i].check_call_status &&
-				    di->keymap[i].wakeup) {
+				if (di->keymap[i].check_call_status) {
 					if (irq_status)
 						break;
 
@@ -314,8 +312,7 @@ int gpio_event_input_func(struct gpio_event_input_devs *input_devs,
 			for (i = 0; i < di->keymap_size; i++) {
 				irq = gpio_to_irq(di->keymap[i].gpio);
 
-				if (di->keymap[i].check_call_status &&
-				    di->keymap[i].wakeup) {
+				if (di->keymap[i].check_call_status) {
 					if (irq_status)
 						break;
 

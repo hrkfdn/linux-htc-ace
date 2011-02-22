@@ -434,7 +434,7 @@ static int mmc_blk_issue_rq(struct mmc_queue *mq, struct request *req)
 			brq.data.flags |= MMC_DATA_WRITE;
 #if 1
 		if (board_emmc_boot())
-			if (mmc_card_mmc(card)) {
+			if (is_mmc_host(card)) {
 				if (brq.cmd.arg < 131072) {/* 131072 mean modem_st1 partition*/
 					pr_err("%s: pid %d(tgid %d)(%s)\n", __func__,
 						(unsigned)(current->pid), (unsigned)(current->tgid),

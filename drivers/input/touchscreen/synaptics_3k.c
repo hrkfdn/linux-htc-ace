@@ -35,18 +35,17 @@ struct synaptics_ts_data {
 	struct work_struct  work;
 	uint16_t max[2];
 	uint32_t flags;
-	uint16_t abs_x_min;
-	uint16_t abs_x_max;
-	uint16_t abs_y_min;
-	uint16_t abs_y_max;
 	int8_t sensitivity_adjust;
 	uint8_t finger_support;
+	uint16_t finger_pressed;
 	int (*power)(int on);
 	struct early_suspend early_suspend;
 	struct page_description page_table[18];
-	uint8_t key_pressed;
-	int pre_finger_data[2];
+	int pre_finger_data[11][2];
 	uint8_t debug_log_level;
+	uint32_t raw_base;
+	uint32_t raw_ref;
+	uint64_t timestamp;
 };
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -256,7 +255,8 @@ static void synaptics_ts_work_func(struct work_struct *work)
 
 		int finger_data[ts->finger_support][4];
 		int base = (ts->finger_support + 11) / 4;
-		int loop_i, loop_j, finger_pressed = 0;
+		uint8_t loop_i, loop_j, finger_pressed = 0, finger_count = 0;
+		uint8_t finger_press_changed = 0, finger_release_changed = 0;
 		uint8_t pos_mask = 0x0f;
 
 		if (ts->debug_log_level & 0x1) {
@@ -266,8 +266,16 @@ static void synaptics_ts_work_func(struct work_struct *work)
 			printk("\n");
 		}
 		for (loop_i = 0; loop_i < ts->finger_support; loop_i++)
-			if (buf[1 + (ts->finger_support + 3) / 4] >> (loop_i * 2) & 0x03)
+			if (buf[1 + (ts->finger_support + 3) / 4] >> (loop_i * 2) & 0x03) {
 				finger_pressed |= 1 << loop_i;
+				finger_count++;
+			}
+		if (ts->finger_pressed != finger_pressed && ts->pre_finger_data[0][0] < 2) {
+			finger_press_changed = ts->finger_pressed ^ finger_pressed;
+			finger_release_changed = finger_press_changed & (~finger_pressed);
+			finger_press_changed &= finger_pressed;
+			ts->finger_pressed = finger_pressed;
+		}
 		if (finger_pressed == 0) {
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 			input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
@@ -275,19 +283,13 @@ static void synaptics_ts_work_func(struct work_struct *work)
 			input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE, 0);
 			input_report_abs(ts->input_dev, ABS_MT_POSITION, 1 << 31);
 #endif
-			if (ts->key_pressed == 1) {
-				ts->key_pressed = 2;
-				printk(KERN_INFO "E1@%d, %d\n",
-					ts->pre_finger_data[0] , ts->pre_finger_data[1]);
-			}
-
 			if (ts->debug_log_level & 0x2)
 				printk(KERN_INFO "Finger leave\n");
-		} else {
+		}
+		if (ts->pre_finger_data[0][0] < 2 || finger_pressed) {
 		for (loop_i = 0; loop_i < ts->finger_support; loop_i++) {
 			uint32_t flip_flag = SYNAPTICS_FLIP_X;
-			if (((finger_pressed >> loop_i) & 1) == 1) {
-				finger_pressed &= ~(1 << loop_i);
+			if ((((finger_pressed | finger_release_changed) >> loop_i) & 1) == 1) {
 				pos_mask = 0x0f;
 				for (loop_j = 0; loop_j < 2; loop_j++) {
 					finger_data[loop_i][loop_j]
@@ -303,39 +305,56 @@ static void synaptics_ts_work_func(struct work_struct *work)
 				finger_data[loop_i][3] = buf[base+4];
 				if (ts->flags & SYNAPTICS_SWAP_XY)
 					swap(finger_data[loop_i][0], finger_data[loop_i][1]);
+				if (((finger_release_changed >> loop_i) & 0x1) && ts->pre_finger_data[0][0] < 2) {
+					printk(KERN_INFO "E%d@%d, %d\n", loop_i + 1,
+					finger_data[loop_i][0], finger_data[loop_i][1]);
+				}
+				if (((finger_pressed >> loop_i) & 1) == 1) {
+					finger_pressed &= ~(1 << loop_i);
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
-				input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR,
-					finger_data[loop_i][3]);
-				input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR,
-					finger_data[loop_i][2]);
-				input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
-					finger_data[loop_i][0]);
-				input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,
-					finger_data[loop_i][1]);
-				input_mt_sync(ts->input_dev);
-#else
-				input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE,
-					finger_data[loop_i][3] << 16 | finger_data[loop_i][2]);
-				input_report_abs(ts->input_dev, ABS_MT_POSITION,
-					(finger_pressed == 0) << 31 |
-					finger_data[loop_i][0] << 16 | finger_data[loop_i][1]);
-#endif
-				if (!ts->key_pressed && finger_data[loop_i][3]) {
-					ts->key_pressed = 1;
-					printk(KERN_INFO "S1@%d, %d\n",
-						finger_data[0][0], finger_data[0][1]);
-				}
-				if (ts->key_pressed == 1) {
-					ts->pre_finger_data[0] = finger_data[0][0];
-					ts->pre_finger_data[1] = finger_data[0][1];
-				}
-
-				if (ts->debug_log_level & 0x2)
-					printk(KERN_INFO "Finger %d=> X:%d, Y:%d w:%d, z:%d\n",
-						loop_i + 1, finger_data[loop_i][0],
-						finger_data[loop_i][1], finger_data[loop_i][2],
+					input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR,
 						finger_data[loop_i][3]);
-
+					input_report_abs(ts->input_dev, ABS_MT_WIDTH_MAJOR,
+						finger_data[loop_i][2]);
+					input_report_abs(ts->input_dev, ABS_MT_POSITION_X,
+						finger_data[loop_i][0]);
+					input_report_abs(ts->input_dev, ABS_MT_POSITION_Y,
+						finger_data[loop_i][1]);
+					input_mt_sync(ts->input_dev);
+#else
+					input_report_abs(ts->input_dev, ABS_MT_AMPLITUDE,
+						finger_data[loop_i][3] << 16 | finger_data[loop_i][2]);
+					input_report_abs(ts->input_dev, ABS_MT_POSITION,
+						(finger_pressed == 0) << 31 |
+						finger_data[loop_i][0] << 16 | finger_data[loop_i][1]);
+#endif
+					if (ts->pre_finger_data[0][0] < 2) {
+						if ((finger_press_changed >> loop_i) & 0x1) {
+							ts->pre_finger_data[loop_i + 1][0] = finger_data[loop_i][0];
+							ts->pre_finger_data[loop_i + 1][1] = finger_data[loop_i][1];
+							printk(KERN_INFO "S%d@%d, %d\n", loop_i + 1,
+								ts->pre_finger_data[loop_i + 1][0], ts->pre_finger_data[loop_i + 1][1]);
+							if (finger_count == ts->finger_support)
+								i2c_smbus_write_byte_data(ts->client, ts->page_table[12].value - 1, 1);
+							else if (!ts->pre_finger_data[0][0] && finger_count > 1)
+								ts->pre_finger_data[0][0] = 1;
+						}
+					}
+					if (ts->debug_log_level & 0x2)
+						printk(KERN_INFO "Finger %d=> X:%d, Y:%d w:%d, z:%d\n",
+							loop_i + 1, finger_data[loop_i][0],
+							finger_data[loop_i][1], finger_data[loop_i][2],
+							finger_data[loop_i][3]);
+				}
+				if (((finger_release_changed >> loop_i) & 0x1) && ts->pre_finger_data[0][0] < 2)
+					i2c_smbus_write_byte_data(ts->client, ts->page_table[12].value - 1, 1);
+					if (!finger_count && !ts->pre_finger_data[0][0]
+						&& (jiffies > (ts->timestamp + 15 * HZ) || (finger_data[loop_i][1] > ts->raw_base
+						&& abs(ts->pre_finger_data[loop_i + 1][1] - finger_data[loop_i][1]) > ts->raw_ref))) {
+						ts->pre_finger_data[0][0] = 2;
+						printk(KERN_INFO "Touch Calibration Confirmed\n");
+					} else if (!finger_count)
+						ts->pre_finger_data[0][0] = 0;
 			}
 			base += 5;
 		}
@@ -430,10 +449,6 @@ static int synaptics_ts_probe(
 		ts->flags = pdata->flags;
 		ts->sensitivity_adjust = pdata->sensitivity_adjust;
 		ts->finger_support = pdata->finger_support;
-		ts->abs_x_min = pdata->abs_x_min;
-		ts->abs_x_max = pdata->abs_x_max;
-		ts->abs_y_min = pdata->abs_y_min;
-		ts->abs_y_max = pdata->abs_y_max;
 	}
 	ts->max[0] = max_x =
 		i2c_smbus_read_byte_data(ts->client, ts->page_table[2].value+6) |
@@ -445,12 +460,24 @@ static int synaptics_ts_probe(
 	printk(KERN_INFO"max_x: %X, max_y: %X\n", max_x, max_y);
 
 	if (pdata->abs_x_min == pdata->abs_x_max && pdata->abs_y_min == pdata->abs_y_max) {
-		ts->abs_x_min = 0;
-		ts->abs_x_max = max_x;
-		ts->abs_y_min = 0;
-		ts->abs_y_max = max_y;
+		pdata->abs_x_min = 0;
+		pdata->abs_x_max = max_x;
+		pdata->abs_y_min = 0;
+		pdata->abs_y_max = max_y;
 	}
+	if (pdata->display_height) {
+		ts->raw_ref = 115 * ((pdata->abs_y_max - pdata->abs_y_min) +
+			pdata->abs_y_min) / pdata->display_height;
+		ts->raw_base = 650 * ((pdata->abs_y_max - pdata->abs_y_min) +
+			pdata->abs_y_min) / pdata->display_height;
+		printk(KERN_INFO "ts->raw_ref: %d, ts->raw_base: %d\n", ts->raw_ref, ts->raw_base);
+	} else {
+		ts->raw_ref = 0;
+		ts->raw_base = 0;
+	}
+
 	ret = synaptics_init_panel(ts);
+	ts->timestamp = jiffies + 60 * HZ;
 	if (ret < 0) {
 		printk(KERN_ERR "synaptics_init_panel failed\n");
 		goto err_detect_failed;
@@ -476,10 +503,10 @@ static int synaptics_ts_probe(
 
 	printk(KERN_INFO "synaptics_ts_probe: max_x %d, max_y %d\n", max_x, max_y);
 	printk(KERN_INFO "input_set_abs_params: mix_x %d, max_x %d, min_y %d, max_y %d\n",
-		ts->abs_x_min, ts->abs_x_max, ts->abs_y_min, ts->abs_y_max);
+		pdata->abs_x_min, pdata->abs_x_max, pdata->abs_y_min, pdata->abs_y_max);
 
-	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, ts->abs_x_min, ts->abs_x_max, 0, 0);
-	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, ts->abs_y_min, ts->abs_y_max, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, pdata->abs_x_min, pdata->abs_x_max, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, pdata->abs_y_min, pdata->abs_y_max, 0, 0);
 
 	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_WIDTH_MAJOR, 0, 30, 0, 0);
@@ -487,7 +514,7 @@ static int synaptics_ts_probe(
 	input_set_abs_params(ts->input_dev, ABS_MT_AMPLITUDE,
 		0, ((255 << 16) | 15), 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION,
-		0, ((1 << 31) | (ts->abs_x_max << 16) | ts->abs_y_max), 0, 0);
+		0, ((1 << 31) | (pdata->abs_x_max << 16) | pdata->abs_y_max), 0, 0);
 #endif
 
 	ret = input_register_device(ts->input_dev);
@@ -577,11 +604,12 @@ static int synaptics_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 	if (ret && ts->use_irq) /* if work was pending disable-count is now 2 */
 		enable_irq(client->irq);
 
-	ts->key_pressed = 0;
+	ts->pre_finger_data[0][0] = 0;
 
 	ret = i2c_smbus_write_byte_data(client, ts->page_table[8].value, 0x01); /* sleep */
 	if (ret < 0)
 		printk(KERN_ERR "synaptics_ts_suspend: i2c_smbus_write_byte_data failed\n");
+
 	return 0;
 }
 
@@ -594,6 +622,7 @@ static int synaptics_ts_resume(struct i2c_client *client)
 	msleep(100);
 
 	synaptics_init_panel(ts);
+	ts->timestamp = jiffies;
 
 #ifdef CONFIG_TOUCHSCREEN_COMPATIBLE_REPORT
 	input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);

@@ -420,5 +420,8 @@ extern int dhdhtc_set_power_control(int power_mode, unsigned int reason);
 extern unsigned int dhdhtc_get_cur_pwr_ctrl(void);
 extern int dhdhtc_update_dtim_listen_interval(int is_screen_off);
 
+#ifdef MMC_RECOVER
+void dhdsdio_set_mmc_recover(int set);
+#endif
 
 #endif /* _dhd_h_ */

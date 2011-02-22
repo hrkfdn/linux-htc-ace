@@ -73,7 +73,6 @@ static int codec_spi_read(unsigned char addr)
 	if (rc < 0)
 		return rc;
 
-	pr_info("%s: (0x%02X, 0x%02X)\n", __func__, addr, result[1]);
 	return result[1];
 }
 
@@ -329,8 +328,8 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		/* TX */
 		pr_info("%s: enable tx\n", __func__);
 		if (en) {
-			if (ctl_ops->tx_amp_enable)
-				ctl_ops->tx_amp_enable(0);
+			if (idx == UPLINK_OFF && ctl_ops->tx_amp_enable)
+				ctl_ops->tx_amp_enable(1);
 
 			aic3254_tx_config(idx);
 			aic3254_tx_mode = idx;
@@ -340,8 +339,8 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 			aic3254_config_ex(CODEC_SET_VOLUME_R,
 				ARRAY_SIZE(CODEC_SET_VOLUME_R));
 
-			if (ctl_ops->tx_amp_enable)
-				ctl_ops->tx_amp_enable(1);
+			if (idx == UPLINK_OFF && ctl_ops->tx_amp_enable)
+				ctl_ops->tx_amp_enable(0);
 		} else {
 			aic3254_tx_config(UPLINK_OFF);
 			aic3254_tx_mode = UPLINK_OFF;
@@ -362,8 +361,9 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 			aic3254_config_ex(CODEC_SET_VOLUME_R,
 				ARRAY_SIZE(CODEC_SET_VOLUME_R));
 
-			if (ctl_ops->rx_amp_enable)
+			if(ctl_ops->rx_amp_enable)
 				ctl_ops->rx_amp_enable(1);
+
 		} else {
 			aic3254_rx_config(DOWNLINK_OFF);
 			aic3254_rx_mode = DOWNLINK_OFF;
@@ -439,14 +439,12 @@ static int aic3254_ioctl(struct inode *inode, struct file *file,
 {
 	struct AIC3254_PARAM para;
 	void *table;
-	struct _CODEC_SPI_CMD **table_ptr;
 	int ret = 0, i = 0, mem_size, volume = 0;
 	CODEC_SPI_CMD reg[2];
 
 	switch (cmd) {
 	case AIC3254_SET_TX_PARAM:
 	case AIC3254_SET_RX_PARAM:
-	case AIC3254_SET_DSP_PARAM:
 		if (copy_from_user(&para, (void *)argc, sizeof(para))) {
 			pr_err("%s: failed on copy_from_user\n", __func__);
 			return -EFAULT;
@@ -454,60 +452,56 @@ static int aic3254_ioctl(struct inode *inode, struct file *file,
 
 		pr_info("%s: parameters(%d, %d, %p)\n", __func__,
 				para.row_num, para.col_num, para.cmd_data);
+		if (cmd == AIC3254_SET_TX_PARAM)
+			table = aic3254_uplink[0];
+		else
+			table = aic3254_downlink[0];
 
-		table_ptr = kmalloc(
-				para.row_num * sizeof(CODEC_SPI_CMD *),
-				GFP_KERNEL);
-		mem_size = para.row_num * para.col_num
-			* sizeof(struct _CODEC_SPI_CMD);
-		table = kmalloc(mem_size, GFP_KERNEL);
-		if (table_ptr == NULL || table == NULL) {
-			pr_err("%s: out of memory\n", __func__);
-			return -ENOMEM;
-		}
-
-		if (copy_from_user(table, para.cmd_data, mem_size)) {
-			pr_err("%s: failed on copy_from_user\n", __func__);
-			kfree(table);
+		/* confirm indicated size doesn't exceed the allocated one */
+		if (para.row_num > IO_CTL_ROW_MAX
+				|| para.col_num != IO_CTL_COL_MAX) {
+			pr_err("%s: data size mismatch with allocated"
+					" memory (%d,%d)\n", __func__,
+					IO_CTL_ROW_MAX, IO_CTL_COL_MAX);
 			return -EFAULT;
 		}
 
-		for (i = 0; i < para.row_num; i++)
-			table_ptr[i] =
-				(struct _CODEC_SPI_CMD *)table +
-				i * para.col_num;
+		mem_size = para.row_num * para.col_num * sizeof(CODEC_SPI_CMD);
+		if (copy_from_user(table, para.cmd_data, mem_size)) {
+			pr_err("%s: failed on copy_from_user\n", __func__);
+			return -EFAULT;
+		}
 
-
-		switch (cmd) {
-		case AIC3254_SET_TX_PARAM:
-			if (aic3254_uplink != NULL) {
-				kfree(*aic3254_uplink);
-				kfree(aic3254_uplink);
-				pr_info("%s: [Tx] free previous space\n",
-						__func__);
-			}
-			aic3254_uplink = table_ptr;
-			/* Init commands */
+		/* invoking initialization procedure of AIC3254 */
+		if (cmd == AIC3254_SET_TX_PARAM)
 			aic3254_tx_config(INITIAL);
-			break;
-		case AIC3254_SET_RX_PARAM:
-			if (aic3254_downlink != NULL) {
-				kfree(*aic3254_downlink);
-				kfree(aic3254_downlink);
-				pr_info("%s: [Rx] free previous space\n",
-						__func__);
-			}
-			aic3254_downlink = table_ptr;
-			break;
-		case AIC3254_SET_DSP_PARAM:
-			if (aic3254_minidsp != NULL) {
-				kfree(*aic3254_minidsp);
-				kfree(aic3254_minidsp);
-				pr_info("%s: [DSP] free previous space\n",
-						__func__);
-			}
-			aic3254_minidsp = table_ptr;
-			break;
+
+		pr_info("%s: update table(%d,%d) successfully\n",
+				__func__, para.row_num, para.col_num);
+		break;
+       case AIC3254_SET_DSP_PARAM:
+		if (copy_from_user(&para, (void *)argc, sizeof(para))) {
+			pr_err("%s: failed on copy_from_user\n", __func__);
+			return -EFAULT;
+		}
+		pr_info("%s: parameters(%d, %d, %p)\n", __func__,
+				para.row_num, para.col_num, para.cmd_data);
+
+		table = aic3254_minidsp[0];
+
+		/* confirm indicated size doesn't exceed the allocated one */
+		if (para.row_num > MINIDSP_ROW_MAX
+				|| para.col_num != MINIDSP_COL_MAX) {
+			pr_err("%s: data size mismatch with allocated"
+					" memory (%d,%d)\n", __func__,
+					MINIDSP_ROW_MAX, MINIDSP_COL_MAX);
+			return -EFAULT;
+		}
+
+		mem_size = para.row_num * para.col_num * sizeof(CODEC_SPI_CMD);
+		if (copy_from_user(table, para.cmd_data, mem_size)) {
+			pr_err("%s: failed on copy_from_user\n", __func__);
+			return -EFAULT;
 		}
 
 		pr_info("%s: update table(%d,%d) successfully\n",
@@ -632,6 +626,25 @@ static struct miscdevice aic3254_misc = {
 	.fops = &aic3254_fops,
 };
 
+static  CODEC_SPI_CMD** init_2d_array(int row_sz, int col_sz)
+{
+	CODEC_SPI_CMD *table = NULL;
+	CODEC_SPI_CMD **table_ptr = NULL;
+	int i = 0;
+
+	table_ptr = kzalloc(row_sz * sizeof(CODEC_SPI_CMD *), GFP_KERNEL);
+	table = kzalloc(row_sz * col_sz * sizeof(CODEC_SPI_CMD), GFP_KERNEL);
+	if (table_ptr == NULL || table == NULL) {
+		pr_err("%s: out of memory\n", __func__);
+		kfree(table);
+		kfree(table_ptr);
+	} else
+		for (i = 0; i < row_sz; i++)
+			table_ptr[i] = (CODEC_SPI_CMD *)table + i * col_sz;
+
+	return table_ptr;
+}
+
 static int spi_aic3254_probe(struct spi_device *aic3254)
 {
 	pr_info("%s\n", __func__);
@@ -649,6 +662,10 @@ static int spi_aic3254_probe(struct spi_device *aic3254)
 	aic3254_tx_mode = UPLINK_OFF;
 	aic3254_rx_mode = DOWNLINK_OFF;
 
+	/* request space for firmware data of AIC3254 */
+	aic3254_uplink = init_2d_array(IO_CTL_ROW_MAX, IO_CTL_COL_MAX);
+	aic3254_downlink = init_2d_array(IO_CTL_ROW_MAX, IO_CTL_COL_MAX);
+	aic3254_minidsp = init_2d_array(MINIDSP_ROW_MAX, MINIDSP_COL_MAX);
 	return 0;
 }
 
@@ -669,6 +686,24 @@ static int spi_aic3254_resume(struct spi_device *aic3254)
 static int spi_aic3254_remove(struct spi_device *aic3254)
 {
 	pr_info("%s\n", __func__);
+
+	/* release allocated memory in this driver */
+	if (aic3254_uplink != NULL) {
+		kfree(aic3254_uplink[0]);
+		kfree(aic3254_uplink);
+		aic3254_uplink = NULL;
+	}
+	if (aic3254_downlink != NULL) {
+		kfree(aic3254_downlink[0]);
+		kfree(aic3254_downlink);
+		aic3254_downlink = NULL;
+	}
+	if (aic3254_minidsp != NULL) {
+		kfree(aic3254_minidsp[0]);
+		kfree(aic3254_minidsp);
+		aic3254_minidsp = NULL;
+	}
+
 	return 0;
 }
 
