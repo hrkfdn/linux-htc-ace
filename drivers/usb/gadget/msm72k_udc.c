@@ -1905,6 +1905,16 @@ int usb_gadget_unregister_driver(struct usb_gadget_driver *driver)
 }
 EXPORT_SYMBOL(usb_gadget_unregister_driver);
 
+/* atmel.c wants these */
+int usb_get_connect_type(void)
+{
+	struct usb_info *dev = the_usb_info;
+	if(!dev)
+		return 0;
+
+	return dev->online;
+}
+EXPORT_SYMBOL(usb_get_connect_type);
 
 static struct platform_driver usb_driver = {
 	.probe = msm72k_probe,
