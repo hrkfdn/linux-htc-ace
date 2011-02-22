@@ -328,8 +328,8 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 		/* TX */
 		pr_info("%s: enable tx\n", __func__);
 		if (en) {
-			if (idx == UPLINK_OFF && ctl_ops->tx_amp_enable)
-				ctl_ops->tx_amp_enable(1);
+			if (ctl_ops->tx_amp_enable)
+				ctl_ops->tx_amp_enable(0);
 
 			aic3254_tx_config(idx);
 			aic3254_tx_mode = idx;
@@ -339,8 +339,8 @@ static int aic3254_set_config(int config_tbl, int idx, int en)
 			aic3254_config_ex(CODEC_SET_VOLUME_R,
 				ARRAY_SIZE(CODEC_SET_VOLUME_R));
 
-			if (idx == UPLINK_OFF && ctl_ops->tx_amp_enable)
-				ctl_ops->tx_amp_enable(0);
+			if (ctl_ops->tx_amp_enable)
+				ctl_ops->tx_amp_enable(1);
 		} else {
 			aic3254_tx_config(UPLINK_OFF);
 			aic3254_tx_mode = UPLINK_OFF;
