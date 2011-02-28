@@ -140,6 +140,8 @@
 #define PMIC_GPIO_INT			(27)
 #define VISION_GPIO_TP_ATT_N	(20)
 
+#define VISION_GPIO_EMMC_RST		  (88)
+
 /* PMIC GPIO */
 #define PMGPIO(x) (x-1)
 #define VISION_AUD_SPK_ENO		PMGPIO(18)

@@ -263,6 +263,10 @@ long has_wake_lock(int type)
 	return ret;
 }
 
+#ifdef CONFIG_SYS_SYNC_BLOCKING_DEBUG
+void sys_sync_debug(void);
+#endif
+
 static void suspend(struct work_struct *work)
 {
 	int ret;
@@ -278,7 +282,13 @@ static void suspend(struct work_struct *work)
 	}
 
 	entry_event_num = current_event_num;
+
+#ifdef CONFIG_SYS_SYNC_BLOCKING_DEBUG
+	sys_sync_debug();
+#else
 	sys_sync();
+#endif
+
 	if (debug_mask & DEBUG_SUSPEND)
 		pr_info("suspend: enter suspend\n");
 	ret = pm_suspend(requested_suspend_state);

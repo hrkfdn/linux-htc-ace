@@ -312,21 +312,22 @@ int spade_support_aic3254(void)
 int spade_support_back_mic(void)
 {
 #ifdef CONFIG_HTC_VOICE_DUALMIC
+	/* the flag is only enabled by ATT config file */
 	return 1;
 #else
-	if (system_rev < 4)
-		/* the stage before XE board */
-		return 1;
-	else
-		return 0;
+	return 0;
 #endif
 }
 
 void spade_get_acoustic_tables(struct acoustic_tables *tb)
 {
 	pr_info("%s: system_rev %d", __func__, system_rev);
-	/* configuration that main clock of A3254 comes from MCLK */
-	if (system_rev > 5) {
+	if (system_rev < 4) {
+		/* the stage before XE board */
+		strcpy(tb->aic3254,
+				"AIC3254_REG_XD.csv");
+	} else if (system_rev > 5) {
+		/* configuration that main clock of A3254 comes from MCLK */
 		strcpy(tb->aic3254_dsp, "CodecDSPID_MCLK.txt");
 		strcpy(tb->aic3254,
 				"AIC3254_REG_DualMic_MCLK.csv");

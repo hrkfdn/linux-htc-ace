@@ -308,6 +308,11 @@ int __init spade_init_mmc(unsigned int sys_rev)
 
 done:
 
+	/* reset eMMC for write protection test */
+	gpio_set_value(SPADE_GPIO_EMMC_RST, 0);	/* this should not work!!! */
+	udelay(100);
+	gpio_set_value(SPADE_GPIO_EMMC_RST, 1);
+
 	return 0;
 }
 

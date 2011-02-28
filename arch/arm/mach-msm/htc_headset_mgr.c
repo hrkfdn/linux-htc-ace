@@ -769,7 +769,7 @@ static ssize_t debug_flag_store(struct device *dev,
 	return count;
 }
 
-static DEVICE_ACCESSORY_ATTR(debug, 0666, debug_flag_show, debug_flag_store);
+static DEVICE_ACCESSORY_ATTR(debug, 0644, debug_flag_show, debug_flag_store);
 
 static int register_attributes(void)
 {

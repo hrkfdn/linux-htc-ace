@@ -1668,6 +1668,16 @@ static void config_spade_flashlight_gpios(void)
 		ARRAY_SIZE(flashlight_gpio_table));
 }
 
+static void config_spade_emmc_gpios(void)
+{
+	uint32_t emmc_gpio_table[] = {
+		PCOM_GPIO_CFG(SPADE_GPIO_EMMC_RST, 0, GPIO_OUTPUT,
+						GPIO_NO_PULL, GPIO_8MA),
+	};
+	config_gpio_table(emmc_gpio_table,
+		ARRAY_SIZE(emmc_gpio_table));
+}
+
 static struct flashlight_platform_data spade_flashlight_data = {
 	.gpio_init  = config_spade_flashlight_gpios,
 	.torch = SPADE_GPIO_FLASHLIGHT_TORCH,
@@ -2125,6 +2135,7 @@ static void __init spade_init(void)
 	pm8058_boardinfo->irq = MSM_GPIO_TO_INT(spade_get_PMIC_GPIO_INT());
 #endif
 
+	config_spade_emmc_gpios();	/* for emmc gpio reset test */
 	ret = spade_init_mmc(system_rev);
 	if (ret != 0)
 		pr_crit("%s: Unable to initialize MMC\n", __func__);

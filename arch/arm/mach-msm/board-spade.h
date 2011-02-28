@@ -158,6 +158,9 @@
 #define SPADE_SPI_DI                 (48)
 #define SPADE_SPI_CS2                (87)
 
+/* EMMC */
+#define SPADE_GPIO_EMMC_RST			 (88)
+
 /* PMIC */
 #define PMIC_GPIO_INT_XC             (27)
 #define PMIC_GPIO_INT                (179)

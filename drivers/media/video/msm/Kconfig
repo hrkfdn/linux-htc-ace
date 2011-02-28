@@ -23,6 +23,12 @@ config MSM_CAMERA_DEBUG
 	help
 	  Enable printk() debug for msm camera
 
+config FLASH_BACKLIGHT_OFF
+	bool "Turn off backlight when flash high"
+	depends on MSM_CAMERA
+	help
+	  Turn off backlight when flash high
+
 comment "Camera Sensor Selection"
 config MT9T013
 	bool "Sensor mt9t013 (BAYER 3M)"

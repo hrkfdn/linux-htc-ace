@@ -27,7 +27,7 @@
 #include <linux/module.h>
 #include <linux/init.h>
 #include <mach/board.h>
-
+#include <linux/leds.h>
 #include <linux/uaccess.h>
 #include <linux/fs.h>
 #include <linux/list.h>
@@ -38,6 +38,7 @@
 #include <media/msm_camera-7x30.h>
 #include <mach/camera.h>
 #include <mach/msm_flashlight.h>
+#include <linux/delay.h>
 DEFINE_MUTEX(hlist_mut);
 #include <asm/cacheflush.h>
 #include <linux/rtc.h>
@@ -52,6 +53,7 @@ DEFINE_MUTEX(pp_snap_lock);
 				__func__, __LINE__, ((to) ? "to" : "from"))
 #define ERR_COPY_FROM_USER() ERR_USER_COPY(0)
 #define ERR_COPY_TO_USER() ERR_USER_COPY(1)
+
 
 static struct class *msm_class;
 static dev_t msm_devno;
@@ -1824,6 +1826,7 @@ static long msm_ioctl_common(struct msm_device *pmsm,
 int msm_camera_flash(struct msm_sync *sync, int level)
 {
 	int flash_level;
+	static int high_enabled;
 
 	if (!sync->sdata->flash_cfg) {
 		pr_err("%s: camera flash is not supported.\n", __func__);
@@ -1840,15 +1843,35 @@ int msm_camera_flash(struct msm_sync *sync, int level)
 		/*flash_level = sync->sdata->flash_cfg->num_flash_levels - 1;*/
 		flash_level = FL_MODE_FLASH;
 		sync->sdata->led_high_enabled = 0; /* reset led high*/
+#ifdef CONFIG_FLASH_BACKLIGHT_OFF
+		led_brightness_switch("lcd-backlight", LED_OFF);
+		pr_info("sleep 40ms for turn off backlight: E\n");
+		msleep(40);
+		pr_info("sleep 40ms for turn off backlight: X\n");
+#endif
+		high_enabled = 1;
 		break;
 	case MSM_CAMERA_LED_LOW:
 		/*flash_level = sync->sdata->flash_cfg->num_flash_levels / 2;*/
 		flash_level = FL_MODE_PRE_FLASH;
 		sync->sdata->led_high_enabled = 1; /* set led high*/
+		high_enabled = 0;
 		break;
 	case MSM_CAMERA_LED_OFF:
 		flash_level = 0;
+#ifdef CONFIG_FLASH_BACKLIGHT_OFF
+		{
+		int rc = sync->sdata->flash_cfg->camera_flash(flash_level);
+		if (high_enabled == 1) {
+			led_brightness_switch("lcd-backlight", LED_FULL);
+		}
+		high_enabled = 0;
+
+		return rc;
+		}
+#else
 		break;
+#endif
 	default:
 		pr_err("%s: invalid flash level %d.\n", __func__, level);
 		return -EINVAL;
