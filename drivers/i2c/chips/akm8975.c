@@ -709,7 +709,7 @@ static ssize_t akm_store(struct device *dev,
 	return -EINVAL;
 }
 
-static DEVICE_ACCESSORY_ATTR(PhoneOnOffFlag, 0664, \
+static DEVICE_ACCESSORY_ATTR(PhoneOnOffFlag, 0666, \
 	akm_show, akm_store);
 
 
