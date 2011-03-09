@@ -89,11 +89,7 @@ static struct cpufreq_frequency_table freq_table[] = {
 	{ 6, 960000 },
 	{ 7, 1024000 },
 	{ 8, 1228800 },
-	{ 9, 1305600 },
-	{ 10, 1401600 },
-	{ 11, 1497600 },
-	{ 12, 1516800 },
-	{ 13, CPUFREQ_TABLE_END },
+	{ 9, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -116,10 +112,6 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	{ 960000, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
 	{ 1024000, PLL_2,   3, 0,  192000, 1075, VDD_RAW(1075) },
 	{ 1228800, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1100) },
-	{ 1305600, PLL_2,   3, 0,  192000, 1200, VDD_RAW(1200) },
-	{ 1401600, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
-	{ 1497600, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
-	{ 1516800, PLL_2,   3, 0,  192000, 1300, VDD_RAW(1300) },
 	{ 0 }
 };
 static unsigned long max_axi_rate;
