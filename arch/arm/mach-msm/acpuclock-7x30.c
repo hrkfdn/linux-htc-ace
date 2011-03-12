@@ -80,16 +80,15 @@ struct clkctl_acpu_speed {
 static struct clock_state drv_state = { 0 };
 
 static struct cpufreq_frequency_table freq_table[] = {
-	{ 0, 122880 },
-	{ 1, 245000 },
-	{ 2, 368640 },
-	{ 3, 576000 },
-	{ 4, 768000 },
-	{ 5, 806400 },
-	{ 6, 960000 },
-	{ 7, 1024000 },
-	{ 8, 1228800 },
-	{ 9, CPUFREQ_TABLE_END },
+	{ 0, 245000 },
+	{ 1, 368640 },
+	{ 2, 576000 },
+	{ 3, 768000 },
+	{ 4, 806400 },
+	{ 5, 960000 },
+	{ 6, 1036800 },
+	{ 7, 1228800 },
+	{ 8, CPUFREQ_TABLE_END },
 };
 
 /* Use negative numbers for sources that can't be enabled/disabled */
@@ -110,7 +109,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl[] = {
 	* is updated to 1024MHz at runtime for QSD8x55. */
 	{ 806400, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
 	{ 960000, PLL_2,    3, 0,  192000, 1050, VDD_RAW(1050) },
-	{ 1024000, PLL_2,   3, 0,  192000, 1075, VDD_RAW(1075) },
+	{ 1036800, PLL_2,   3, 0,  192000, 1075, VDD_RAW(1075) },
 	{ 1228800, PLL_2,   3, 0,  192000, 1100, VDD_RAW(1100) },
 	{ 0 }
 };
