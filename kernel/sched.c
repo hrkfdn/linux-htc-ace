@@ -11026,4 +11026,25 @@ void synchronize_sched_expedited(void)
 EXPORT_SYMBOL_GPL(synchronize_sched_expedited);
 
 #endif /* #else #ifndef CONFIG_SMP */
+
+/*
+ * Look for any tasks *anywhere* that are running nice 0 or better. We do
+ * this lockless for overhead reasons since the occasional wrong result
+ * is harmless.
+ */
+int above_background_load(void)
+{
+        struct task_struct *cpu_curr;
+        unsigned long cpu;
+
+        for_each_online_cpu(cpu) {
+                cpu_curr = cpu_rq(cpu)->curr;
+                if (unlikely(!cpu_curr))
+                        continue;
+                if (PRIO_TO_NICE(cpu_curr->static_prio) < 1)
+                        return 1;
+        }
+        return 0;
+}
+
 #endif /* CONFIG_SCHED_BFS */
