@@ -683,6 +683,11 @@ static int spi_aic3254_suspend(struct spi_device *aic3254, pm_message_t pmsg)
 {
 	pr_info("%s\n", __func__);
 	suspend_flag = 1;
+	/*
+	 * call aic3254_powerdown() after suspend_flag
+	 * has been set to let the panel sleep.
+	 */
+	aic3254_powerdown();
 	return 0;
 }
 
